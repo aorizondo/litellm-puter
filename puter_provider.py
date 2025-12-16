@@ -1,55 +1,100 @@
-# puter_provider.py
+"""
+Puter LLM Provider for LiteLLM
+================================
+
+This module provides integration between LiteLLM and Puter's AI API,
+allowing access to multiple LLM providers (OpenAI, Anthropic, OpenRouter, etc.)
+through a unified interface.
+
+Author: Puter Team
+License: MIT
+"""
+
 import httpx
 import litellm
-from boto3 import client
-from httpx._types import RequestFiles
-from litellm import CustomLLM, ModelResponse, get_llm_provider, Choices, Message, BaseLLMHTTPHandler, HTTPHandler, AsyncHTTPHandler
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObject
-from litellm.llms.base_llm.chat.transformation import BaseConfig
-from litellm.llms.custom_httpx.llm_http_handler import LiteLLMLoggingObj
-from litellm.types.utils import GenericStreamingChunk, Usage
-from typing import Optional, List, Dict, Any, Union, Iterator, AsyncIterator
-import asyncio
+from typing import Optional, List, Dict, Any, Union
 from json import dumps, loads
+
+from litellm import CustomLLM, ModelResponse
+from litellm.llms.custom_httpx.http_handler import HTTPHandler, AsyncHTTPHandler
+from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObject
+from httpx._types import RequestFiles
 from putergenai.putergenai import PuterClient
 
 
 class PuterAsyncHTTPHandler(AsyncHTTPHandler):
-    def __init__(self, api_key, *args, **kwargs):
+    """
+    Async HTTP handler for Puter API requests.
+    
+    This handler intercepts LiteLLM's HTTP calls and redirects them to Puter's
+    unified AI API endpoint, handling authentication and request transformation.
+    """
+    
+    def __init__(self, api_key: str, *args, **kwargs):
+        """
+        Initialize the async HTTP handler.
+        
+        Args:
+            api_key: Puter API key for authentication
+            *args, **kwargs: Additional arguments passed to parent class
+        """
+        if not api_key or api_key == "None":
+            raise ValueError("Valid Puter API key is required")
+            
         self.api_key = api_key
         super().__init__(*args, **kwargs)
 
     async def post(
-            self,
-            url: str,
-            data: Optional[Union[dict, str, bytes]] = None,
-            json: Optional[Union[dict, str, List]] = None,
-            params: Optional[dict] = None,
-            headers: Optional[dict] = None,
-            stream: bool = False,
-            timeout: Optional[Union[float, httpx.Timeout]] = None,
-            files: Optional[Union[dict, RequestFiles]] = None,
-            content: Any = None,
-            logging_obj: Optional[LiteLLMLoggingObject] = None,
+        self,
+        url: str,
+        data: Optional[Union[dict, str, bytes]] = None,
+        json: Optional[Union[dict, str, List]] = None,
+        params: Optional[dict] = None,
+        headers: Optional[dict] = None,
+        stream: bool = False,
+        timeout: Optional[Union[float, httpx.Timeout]] = None,
+        files: Optional[Union[dict, RequestFiles]] = None,
+        content: Any = None,
+        logging_obj: Optional[LiteLLMLoggingObject] = None,
     ):
+        """
+        Override POST method to redirect requests to Puter API.
+        
+        Transforms standard LLM API requests into Puter's driver-based format.
+        """
+        # Redirect to Puter's unified endpoint
         url = 'https://api.puter.com/drivers/call'
-        model = loads(data)['model']
+        
+        # Parse request data
+        request_data = loads(data) if isinstance(data, (str, bytes)) else data
+        model = request_data.get('model')
+        
+        # Determine the appropriate driver for this model
         driver = PuterClient().model_to_driver.get(model, "openai-completion")
+        
+        # Construct Puter API payload
         payload = {
             "interface": "puter-chat-completion",
             "driver": driver,
             "method": "complete",
-            "args": loads(data),
+            "args": request_data,
             "stream": stream,
             "test_mode": False,
         }
+        
+        # Serialize payload
         data = dumps(payload)
+        
+        # Set required headers for Puter API
+        # Note: Origin header is CRITICAL for Puter authentication
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
-            'Origin': 'https://puter.com',
-            'Referer': 'https://puter.com/',
+            "Origin": "https://puter.com",
+            "Referer": "https://puter.com/",
         }
+        
+        # Make the actual request
         puter_response = await super().post(
             url,
             data,
@@ -62,56 +107,107 @@ class PuterAsyncHTTPHandler(AsyncHTTPHandler):
             content,
             logging_obj
         )
+        
+        # Handle streaming responses
+        if stream:
+            return puter_response
+            
+        # Transform response based on driver type
+        response_json = puter_response.json()
+        
         if driver == 'claude':
-            puter_response._content = bytes(dumps(puter_response.json()['result']['message']).encode())
+            # Claude returns response in a different format
+            puter_response._content = bytes(
+                dumps(response_json['result']['message']).encode()
+            )
         else:
-            response_json = puter_response.json()['result']
-            usage = response_json.pop('usage')
-            response_json = {
-                'choices': [response_json],
+            # Standard OpenAI-compatible format
+            result = response_json['result']
+            usage = result.pop('usage', {})
+            
+            transformed_response = {
+                'choices': [result],
                 'model': model,
                 'usage': usage
             }
-            puter_response._content = bytes(dumps(response_json).encode())
+            puter_response._content = bytes(dumps(transformed_response).encode())
+            
         return puter_response
 
 
 class PuterHTTPHandler(HTTPHandler):
-    def __init__(self, api_key, *args, **kwargs):
+    """
+    Synchronous HTTP handler for Puter API requests.
+    
+    This handler intercepts LiteLLM's HTTP calls and redirects them to Puter's
+    unified AI API endpoint, handling authentication and request transformation.
+    """
+    
+    def __init__(self, api_key: str, *args, **kwargs):
+        """
+        Initialize the sync HTTP handler.
+        
+        Args:
+            api_key: Puter API key for authentication
+            *args, **kwargs: Additional arguments passed to parent class
+        """
+        if not api_key or api_key == "None":
+            raise ValueError("Valid Puter API key is required")
+            
         self.api_key = api_key
         super().__init__(*args, **kwargs)
 
     def post(
-            self,
-            url: str,
-            data: Optional[Union[dict, str, bytes]] = None,
-            json: Optional[Union[dict, str, List]] = None,
-            params: Optional[dict] = None,
-            headers: Optional[dict] = None,
-            stream: bool = False,
-            timeout: Optional[Union[float, httpx.Timeout]] = None,
-            files: Optional[Union[dict, RequestFiles]] = None,
-            content: Any = None,
-            logging_obj: Optional[LiteLLMLoggingObject] = None,
+        self,
+        url: str,
+        data: Optional[Union[dict, str, bytes]] = None,
+        json: Optional[Union[dict, str, List]] = None,
+        params: Optional[dict] = None,
+        headers: Optional[dict] = None,
+        stream: bool = False,
+        timeout: Optional[Union[float, httpx.Timeout]] = None,
+        files: Optional[Union[dict, RequestFiles]] = None,
+        content: Any = None,
+        logging_obj: Optional[LiteLLMLoggingObject] = None,
     ):
+        """
+        Override POST method to redirect requests to Puter API.
+        
+        Transforms standard LLM API requests into Puter's driver-based format.
+        """
+        # Redirect to Puter's unified endpoint
         url = 'https://api.puter.com/drivers/call'
-        model = loads(data)['model']
+        
+        # Parse request data
+        request_data = loads(data) if isinstance(data, (str, bytes)) else data
+        model = request_data.get('model')
+        
+        # Determine the appropriate driver for this model
         driver = PuterClient().model_to_driver.get(model, "openai-completion")
+        
+        # Construct Puter API payload
         payload = {
             "interface": "puter-chat-completion",
             "driver": driver,
             "method": "complete",
-            "args": loads(data),
+            "args": request_data,
             "stream": stream,
             "test_mode": False,
         }
+        
+        # Serialize payload
         data = dumps(payload)
+        
+        # Set required headers for Puter API
+        # Note: Origin header is CRITICAL for Puter authentication
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
-            'Origin': 'https://puter.com',
-            'Referer': 'https://puter.com/',
+            "Origin": "https://puter.com",
+            "Referer": "https://puter.com/",
         }
+        
+        # Make the actual request
         puter_response = super().post(
             url,
             data,
@@ -124,76 +220,151 @@ class PuterHTTPHandler(HTTPHandler):
             content,
             logging_obj
         )
+        
+        # Handle streaming responses
         if stream:
             return puter_response
+            
+        # Transform response based on driver type
+        response_json = puter_response.json()
+        
         if driver == 'claude':
-            puter_response._content = bytes(dumps(puter_response.json()['result']['message']).encode())
+            # Claude returns response in a different format
+            puter_response._content = bytes(
+                dumps(response_json['result']['message']).encode()
+            )
         else:
-            response_json = puter_response.json()['result']
-            usage = response_json.pop('usage')
-            response_json = {
-                'choices': [response_json],
+            # Standard OpenAI-compatible format
+            result = response_json['result']
+            usage = result.pop('usage', {})
+            
+            transformed_response = {
+                'choices': [result],
                 'model': model,
                 'usage': usage
             }
-            puter_response._content = bytes(dumps(response_json).encode())
+            puter_response._content = bytes(dumps(transformed_response).encode())
+            
         return puter_response
 
 
 class PuterLLM(CustomLLM):
-    def completion(self, *args, **kwargs) -> litellm.ModelResponse:
-        import os
-        model = kwargs.get('model')
-        provider = model.split('/')[0].split(':')[0]
-        model = provider + '/' + model.split('/')[-1]
-        api_key = os.getenv("PUTER_API_KEY")
+    """
+    Custom LLM implementation for Puter provider.
+    
+    This class integrates with LiteLLM's custom provider system, allowing
+    Puter to be used as a first-class provider alongside OpenAI, Anthropic, etc.
+    """
+    
+    def completion(self, *args, **kwargs) -> ModelResponse:
+        """
+        Handle synchronous completion requests.
         
-        if not api_key:
-            raise ValueError("PUTER_API_KEY environment variable not set")
+        Transforms model names from "puter/provider:model" format to the
+        appropriate format for the underlying provider.
+        """
+        import os
+        
+        # Extract and transform model name
+        # Input:  "puter/openrouter:deepseek/deepseek-chat"
+        # Output: "openrouter/openrouter:deepseek/deepseek-chat"
+        original_model = kwargs.get('model', '')
+        
+        if original_model.startswith('puter/'):
+            # Remove "puter/" prefix
+            puter_model = original_model[6:]
             
-        kwargs.update(client=PuterHTTPHandler(
-            api_key=api_key,
-            model=model
-        ))
+            # Detect provider from model string
+            if ':' in puter_model:
+                # Format: "openrouter:deepseek/deepseek-chat"
+                provider = puter_model.split(':')[0]
+                transformed_model = f"{provider}/{puter_model}"
+            else:
+                # Format: "claude-sonnet-4-5-20250929"
+                transformed_model = f"anthropic/{puter_model}"
+            
+            kwargs['model'] = transformed_model
+        
+        # Get API key from environment
+        api_key = os.getenv("PUTER_API_KEY")
+        if not api_key:
+            raise ValueError(
+                "PUTER_API_KEY environment variable is required. "
+                "Get your API key from https://puter.com/app/settings"
+            )
+        
+        # Enable experimental HTTP handler support
+        os.environ['EXPERIMENTAL_OPENAI_BASE_LLM_HTTP_HANDLER'] = "True"
+        
+        # Create HTTP client with Puter handler
+        kwargs['client'] = PuterHTTPHandler(api_key=api_key)
+        kwargs['api_key'] = "none"  # Placeholder, actual auth is in handler
+        
+        # Make the request through LiteLLM
         return litellm.completion(*args, **kwargs)
 
-    async def acompletion(self, *args, **kwargs):
-        import os
-        model = kwargs.get('model')
-        provider = model.split('/')[0].split(':')[0]
-        model = provider + '/' + model.split('/')[-1]
-        api_key = os.getenv("PUTER_API_KEY")
+    async def acompletion(self, *args, **kwargs) -> ModelResponse:
+        """
+        Handle asynchronous completion requests.
         
-        if not api_key:
-            raise ValueError("PUTER_API_KEY environment variable not set")
+        Transforms model names from "puter/provider:model" format to the
+        appropriate format for the underlying provider.
+        """
+        import os
+        
+        # Extract and transform model name
+        original_model = kwargs.get('model', '')
+        
+        if original_model.startswith('puter/'):
+            puter_model = original_model[6:]
             
-        kwargs.update(client=PuterAsyncHTTPHandler(
-            api_key=api_key,
-            model=model
-        ))
+            if ':' in puter_model:
+                provider = puter_model.split(':')[0]
+                transformed_model = f"{provider}/{puter_model}"
+            else:
+                transformed_model = f"anthropic/{puter_model}"
+            
+            kwargs['model'] = transformed_model
+        
+        # Get API key from environment
+        api_key = os.getenv("PUTER_API_KEY")
+        if not api_key:
+            raise ValueError(
+                "PUTER_API_KEY environment variable is required. "
+                "Get your API key from https://puter.com/app/settings"
+            )
+        
+        # Enable experimental HTTP handler support
+        os.environ['EXPERIMENTAL_OPENAI_BASE_LLM_HTTP_HANDLER'] = "True"
+        
+        # Create async HTTP client with Puter handler
+        kwargs['client'] = PuterAsyncHTTPHandler(api_key=api_key)
+        kwargs['api_key'] = "none"
+        
+        # Make the async request through LiteLLM
         return await litellm.acompletion(*args, **kwargs)
 
-    def streaming(self, *args, **kwargs) -> Iterator[GenericStreamingChunk]:
-        generic_streaming_chunk: GenericStreamingChunk = {
-            "finish_reason": "stop",
-            "index": 0,
-            "is_finished": True,
-            "text": str(int(time.time())),
-            "tool_use": None,
-            "usage": {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0},
-        }
-        return generic_streaming_chunk  # type: ignore
 
-
+# Global instance for easy import
 puter_llm = PuterLLM()
 
-if __name__ == '__main__':
-    litellm.custom_provider_map = [  # 👈 KEY STEP - REGISTER HANDLER
+
+# Convenience function for quick setup
+def setup_puter_provider():
+    """
+    Register Puter as a custom provider in LiteLLM.
+    
+    Usage:
+        from puter_provider import setup_puter_provider
+        setup_puter_provider()
+        
+        # Now you can use Puter models directly
+        response = litellm.completion(
+            model="puter/openrouter:deepseek/deepseek-chat",
+            messages=[{"role": "user", "content": "Hello!"}]
+        )
+    """
+    litellm.custom_provider_map = [
         {"provider": "puter", "custom_handler": puter_llm}
     ]
-
-    resp = litellm.completion(
-        model="puter/openrouter:deepseek/deepseek-chat",
-        messages=[{"role": "user", "content": "Hello world!"}],
-    )
-    print(resp)
+    return puter_llm
