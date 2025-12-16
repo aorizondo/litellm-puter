@@ -66,9 +66,8 @@ class PuterAsyncHTTPHandler(AsyncHTTPHandler):
         url = 'https://api.puter.com/drivers/call'
         
         # Parse request data
-        request_data = loads(data) if isinstance(data, (str, bytes)) else data
-        model = request_data.get('model')
-        
+        model = loads(data).get('model') if isinstance(data, (str, bytes)) else json.get('model')
+
         # Determine the appropriate driver for this model
         driver = PuterClient().model_to_driver.get(model, "openai-completion")
         
@@ -77,7 +76,7 @@ class PuterAsyncHTTPHandler(AsyncHTTPHandler):
             "interface": "puter-chat-completion",
             "driver": driver,
             "method": "complete",
-            "args": request_data,
+            "args": json or loads(data),
             "stream": stream,
             "test_mode": False,
         }
@@ -96,16 +95,16 @@ class PuterAsyncHTTPHandler(AsyncHTTPHandler):
         
         # Make the actual request
         puter_response = await super().post(
-            url,
-            data,
-            json,
-            params,
-            headers,
-            stream,
-            timeout,
-            files,
-            content,
-            logging_obj
+            url=url,
+            data=data,
+            json=json,
+            params=params,
+            headers=headers,
+            timeout=timeout,
+            stream=stream,
+            logging_obj=logging_obj,
+            files=files,
+            content=content,
         )
         
         # Handle streaming responses
@@ -312,20 +311,6 @@ class PuterLLM(CustomLLM):
         """
         import os
         
-        # Extract and transform model name
-        original_model = kwargs.get('model', '')
-        
-        if original_model.startswith('puter/'):
-            puter_model = original_model[6:]
-            
-            if ':' in puter_model:
-                provider = puter_model.split(':')[0]
-                transformed_model = f"{provider}/{puter_model}"
-            else:
-                transformed_model = f"anthropic/{puter_model}"
-            
-            kwargs['model'] = transformed_model
-        
         # Get API key from environment
         api_key = os.getenv("PUTER_API_KEY")
         if not api_key:
@@ -338,11 +323,23 @@ class PuterLLM(CustomLLM):
         os.environ['EXPERIMENTAL_OPENAI_BASE_LLM_HTTP_HANDLER'] = "True"
         
         # Create async HTTP client with Puter handler
-        kwargs['client'] = PuterAsyncHTTPHandler(api_key=api_key)
         kwargs['api_key'] = "none"
         
         # Make the async request through LiteLLM
-        return await litellm.acompletion(*args, **kwargs)
+        return await litellm.acompletion(
+            client=PuterAsyncHTTPHandler(api_key=api_key),
+            api_key=api_key,
+            base_url='https://api.puter.com/drivers/call',
+            extra_headers={
+                "Content-Type": "application/json",
+                "Origin": "https://puter.com",
+                "Referer": "https://puter.com/",
+                "Authorization": "Bearer " + api_key
+            },
+            model=kwargs['model'],
+            stream=False,
+            messages=kwargs['messages']
+        )
 
 
 # Global instance for easy import
