@@ -142,26 +142,36 @@ class PuterHTTPHandler(HTTPHandler):
 
 class PuterLLM(CustomLLM):
     def completion(self, *args, **kwargs) -> litellm.ModelResponse:
+        import os
         model = kwargs.get('model')
         provider = model.split('/')[0].split(':')[0]
         model = provider + '/' + model.split('/')[-1]
-
+        api_key = os.getenv("PUTER_API_KEY")
+        
+        if not api_key:
+            raise ValueError("PUTER_API_KEY environment variable not set")
+            
         kwargs.update(client=PuterHTTPHandler(
-            api_key="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0IjoicyIsInYiOiIwLjAuMCIsInUiOiJYWUsyZHUycFFiV2sxL1QybDRxZWVBPT0iLCJ1dSI6ImdxeE5nOU45U2llUkZtUzI2S0VucVE9PSIsImlhdCI6MTc2NDg3NzYxNX0.BuR-Z3hWX-iiKLcI2Zqq8W7z0zlnJK_TXwIs3DepJZc"),
+            api_key=api_key,
             model=model
-        )
+        ))
         return litellm.completion(*args, **kwargs)
 
     async def acompletion(self, *args, **kwargs):
+        import os
         model = kwargs.get('model')
         provider = model.split('/')[0].split(':')[0]
         model = provider + '/' + model.split('/')[-1]
-
+        api_key = os.getenv("PUTER_API_KEY")
+        
+        if not api_key:
+            raise ValueError("PUTER_API_KEY environment variable not set")
+            
         kwargs.update(client=PuterAsyncHTTPHandler(
-            api_key="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0IjoicyIsInYiOiIwLjAuMCIsInUiOiJYWUsyZHUycFFiV2sxL1QybDRxZWVBPT0iLCJ1dSI6ImdxeE5nOU45U2llUkZtUzI2S0VucVE9PSIsImlhdCI6MTc2NDg3NzYxNX0.BuR-Z3hWX-iiKLcI2Zqq8W7z0zlnJK_TXwIs3DepJZc"),
+            api_key=api_key,
             model=model
-        )
-        return litellm.acompletion(*args, **kwargs)
+        ))
+        return await litellm.acompletion(*args, **kwargs)
 
     def streaming(self, *args, **kwargs) -> Iterator[GenericStreamingChunk]:
         generic_streaming_chunk: GenericStreamingChunk = {
