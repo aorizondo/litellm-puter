@@ -1,6 +1,6 @@
 import os
 import litellm
-from puter_provider import PuterHTTPHandler
+from litellm_puter.provider import PuterHTTPHandler
 from dotenv import load_dotenv
 
 # Cargar variables de entorno desde .env

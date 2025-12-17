@@ -21,7 +21,7 @@ Only send max_tokens if explicitly specified by user with reasonable value.
 Let Puter calculate it automatically otherwise.
 """
 
-from puter_provider import filter_model_params
+from litellm_puter.provider import filter_model_params
 
 
 def test_max_tokens_not_specified():

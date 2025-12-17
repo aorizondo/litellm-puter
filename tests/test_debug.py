@@ -1,6 +1,6 @@
 import os
 import litellm
-from puter_provider import puter_llm
+from litellm_puter.provider import puter_llm
 from dotenv import load_dotenv
 
 # Cargar variables de entorno desde .env

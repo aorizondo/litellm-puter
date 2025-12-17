@@ -1,0 +1,34 @@
+[Unit]
+Description=LiteLLM Puter AI Gateway
+Documentation=https://github.com/aorizondo/litellm-puter
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=litellm-puter
+Group=litellm-puter
+WorkingDirectory=/var/lib/litellm-puter
+Environment="PATH=/usr/local/bin:/usr/bin:/bin"
+EnvironmentFile=/etc/litellm-puter/environment
+ExecStart=/usr/bin/litellm-puter-gateway --config /etc/litellm-puter/config.yaml --host 0.0.0.0 --port 4000
+Restart=on-failure
+RestartSec=5s
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=litellm-puter
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/litellm-puter /var/log/litellm-puter
+ReadOnlyPaths=/etc/litellm-puter
+
+# Resource limits
+LimitNOFILE=65536
+LimitNPROC=512
+
+[Install]
+WantedBy=multi-user.target

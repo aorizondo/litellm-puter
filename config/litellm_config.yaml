@@ -1,0 +1,376 @@
+✅ Puter models cache updated: 488 models
+# LiteLLM Configuration for Puter AI Gateway
+# Generated from Puter API - 488 models available
+# Format: model: puter/<provider>/<model-id>
+#
+# Priority providers: OpenAI, Anthropic, DeepSeek, xAI
+#
+# To use a model:
+#   litellm.completion(model='puter/openai/gpt-4o', messages=[...])
+#
+
+model_list:
+
+  # ======================================================================
+  # OpenAI Models (GPT) - 23 models
+  # ======================================================================
+
+  - model_name: gpt-4.1
+    litellm_params:
+      model: puter/openai/gpt-4.1
+      api_key: os.environ/PUTER_API_KEY
+
+  - model_name: gpt-4.1-mini
+    litellm_params:
+      model: puter/openai/gpt-4.1-mini
+      api_key: os.environ/PUTER_API_KEY
+
+  - model_name: gpt-4.1-nano
+    litellm_params:
+      model: puter/openai/gpt-4.1-nano
+      api_key: os.environ/PUTER_API_KEY
+
+  - model_name: gpt-4.5-preview
+    litellm_params:
+      model: puter/openai/gpt-4.5-preview
+      api_key: os.environ/PUTER_API_KEY
+
+  - model_name: gpt-4o
+    litellm_params:
+      model: puter/openai/gpt-4o
+      api_key: os.environ/PUTER_API_KEY
+
+  - model_name: gpt-4o-mini
+    litellm_params:
+      model: puter/openai/gpt-4o-mini
+      api_key: os.environ/PUTER_API_KEY
+
+  - model_name: gpt-5-2025-08-07
+    litellm_params:
+      model: puter/openai/gpt-5-2025-08-07
+      api_key: os.environ/PUTER_API_KEY
+
+  - model_name: gpt-5-chat-latest
+    litellm_params:
+      model: puter/openai/gpt-5-chat-latest
+      api_key: os.environ/PUTER_API_KEY
+
+  - model_name: gpt-5-mini-2025-08-07
+    litellm_params:
+      model: puter/openai/gpt-5-mini-2025-08-07
+      api_key: os.environ/PUTER_API_KEY
+
+  - model_name: gpt-5-nano-2025-08-07
+    litellm_params:
+      model: puter/openai/gpt-5-nano-2025-08-07
+      api_key: os.environ/PUTER_API_KEY
+
+  - model_name: gpt-5.1
+    litellm_params:
+      model: puter/openai/gpt-5.1
+      api_key: os.environ/PUTER_API_KEY
+
+  - model_name: gpt-5.1-chat-latest
+    litellm_params:
+      model: puter/openai/gpt-5.1-chat-latest
+      api_key: os.environ/PUTER_API_KEY
+
+  - model_name: gpt-5.1-codex
+    litellm_params:
+      model: puter/openai/gpt-5.1-codex
+      api_key: os.environ/PUTER_API_KEY
+
+  - model_name: gpt-5.1-codex-mini
+    litellm_params:
+      model: puter/openai/gpt-5.1-codex-mini
+      api_key: os.environ/PUTER_API_KEY
+
+  - model_name: gpt-5.2-2025-12-11
+    litellm_params:
+      model: puter/openai/gpt-5.2-2025-12-11
+      api_key: os.environ/PUTER_API_KEY
+
+  - model_name: gpt-5.2-chat-latest
+    litellm_params:
+      model: puter/openai/gpt-5.2-chat-latest
+      api_key: os.environ/PUTER_API_KEY
+
+  - model_name: gpt-5.2-pro-2025-12-11
+    litellm_params:
+      model: puter/openai/gpt-5.2-pro-2025-12-11
+      api_key: os.environ/PUTER_API_KEY
+
+  - model_name: o1
+    litellm_params:
+      model: puter/openai/o1
+      api_key: os.environ/PUTER_API_KEY
+
+  - model_name: o1-mini
+    litellm_params:
+      model: puter/openai/o1-mini
+      api_key: os.environ/PUTER_API_KEY
+
+  - model_name: o1-pro
+    litellm_params:
+      model: puter/openai/o1-pro
+      api_key: os.environ/PUTER_API_KEY
+
+  - model_name: o3
+    litellm_params:
+      model: puter/openai/o3
+      api_key: os.environ/PUTER_API_KEY
+
+  - model_name: o3-mini
+    litellm_params:
+      model: puter/openai/o3-mini
+      api_key: os.environ/PUTER_API_KEY
+
+  - model_name: o4-mini
+    litellm_params:
+      model: puter/openai/o4-mini
+      api_key: os.environ/PUTER_API_KEY
+
+  # ======================================================================
+  # Anthropic Models (Claude) - 10 models
+  # ======================================================================
+
+  - model_name: claude-3-5-sonnet-20240620
+    litellm_params:
+      model: puter/anthropic/claude-3-5-sonnet-20240620
+      api_key: os.environ/PUTER_API_KEY
+
+  - model_name: claude-3-5-sonnet-20241022
+    litellm_params:
+      model: puter/anthropic/claude-3-5-sonnet-20241022
+      api_key: os.environ/PUTER_API_KEY
+
+  - model_name: claude-3-7-sonnet-20250219
+    litellm_params:
+      model: puter/anthropic/claude-3-7-sonnet-20250219
+      api_key: os.environ/PUTER_API_KEY
+
+  - model_name: claude-3-haiku-20240307
+    litellm_params:
+      model: puter/anthropic/claude-3-haiku-20240307
+      api_key: os.environ/PUTER_API_KEY
+
+  - model_name: claude-haiku-4-5-20251001
+    litellm_params:
+      model: puter/anthropic/claude-haiku-4-5-20251001
+      api_key: os.environ/PUTER_API_KEY
+
+  - model_name: claude-opus-4-1-20250805
+    litellm_params:
+      model: puter/anthropic/claude-opus-4-1-20250805
+      api_key: os.environ/PUTER_API_KEY
+
+  - model_name: claude-opus-4-20250514
+    litellm_params:
+      model: puter/anthropic/claude-opus-4-20250514
+      api_key: os.environ/PUTER_API_KEY
+
+  - model_name: claude-opus-4-5-20251101
+    litellm_params:
+      model: puter/anthropic/claude-opus-4-5-20251101
+      api_key: os.environ/PUTER_API_KEY
+
+  - model_name: claude-sonnet-4-20250514
+    litellm_params:
+      model: puter/anthropic/claude-sonnet-4-20250514
+      api_key: os.environ/PUTER_API_KEY
+
+  - model_name: claude-sonnet-4-5-20250929
+    litellm_params:
+      model: puter/anthropic/claude-sonnet-4-5-20250929
+      api_key: os.environ/PUTER_API_KEY
+
+  # ======================================================================
+  # DeepSeek Models - 2 models
+  # ======================================================================
+
+  - model_name: deepseek-chat
+    litellm_params:
+      model: puter/deepseek/deepseek-chat
+      api_key: os.environ/PUTER_API_KEY
+
+  - model_name: deepseek-reasoner
+    litellm_params:
+      model: puter/deepseek/deepseek-reasoner
+      api_key: os.environ/PUTER_API_KEY
+
+  # ======================================================================
+  # xAI Models (Grok) - 8 models
+  # ======================================================================
+
+  - model_name: grok-2
+    litellm_params:
+      model: puter/xai/grok-2
+      api_key: os.environ/PUTER_API_KEY
+
+  - model_name: grok-2-vision
+    litellm_params:
+      model: puter/xai/grok-2-vision
+      api_key: os.environ/PUTER_API_KEY
+
+  - model_name: grok-3
+    litellm_params:
+      model: puter/xai/grok-3
+      api_key: os.environ/PUTER_API_KEY
+
+  - model_name: grok-3-fast
+    litellm_params:
+      model: puter/xai/grok-3-fast
+      api_key: os.environ/PUTER_API_KEY
+
+  - model_name: grok-3-mini
+    litellm_params:
+      model: puter/xai/grok-3-mini
+      api_key: os.environ/PUTER_API_KEY
+
+  - model_name: grok-3-mini-fast
+    litellm_params:
+      model: puter/xai/grok-3-mini-fast
+      api_key: os.environ/PUTER_API_KEY
+
+  - model_name: grok-beta
+    litellm_params:
+      model: puter/xai/grok-beta
+      api_key: os.environ/PUTER_API_KEY
+
+  - model_name: grok-vision-beta
+    litellm_params:
+      model: puter/xai/grok-vision-beta
+      api_key: os.environ/PUTER_API_KEY
+
+  # ======================================================================
+  # Google Gemini Models - 6 models
+  # ======================================================================
+
+  - model_name: gemini-2.0-flash
+    litellm_params:
+      model: puter/gemini/gemini-2.0-flash
+      api_key: os.environ/PUTER_API_KEY
+
+  - model_name: gemini-2.0-flash-lite
+    litellm_params:
+      model: puter/gemini/gemini-2.0-flash-lite
+      api_key: os.environ/PUTER_API_KEY
+
+  - model_name: gemini-2.5-flash
+    litellm_params:
+      model: puter/gemini/gemini-2.5-flash
+      api_key: os.environ/PUTER_API_KEY
+
+  - model_name: gemini-2.5-flash-lite
+    litellm_params:
+      model: puter/gemini/gemini-2.5-flash-lite
+      api_key: os.environ/PUTER_API_KEY
+
+  - model_name: gemini-2.5-pro
+    litellm_params:
+      model: puter/gemini/gemini-2.5-pro
+      api_key: os.environ/PUTER_API_KEY
+
+  - model_name: gemini-3-pro-preview
+    litellm_params:
+      model: puter/gemini/gemini-3-pro-preview
+      api_key: os.environ/PUTER_API_KEY
+
+  # ======================================================================
+  # Mistral AI Models - 16 models
+  # ======================================================================
+
+  - model_name: codestral-2508
+    litellm_params:
+      model: puter/mistral/codestral-2508
+      api_key: os.environ/PUTER_API_KEY
+
+  - model_name: devstral-medium-2507
+    litellm_params:
+      model: puter/mistral/devstral-medium-2507
+      api_key: os.environ/PUTER_API_KEY
+
+  - model_name: devstral-small-2507
+    litellm_params:
+      model: puter/mistral/devstral-small-2507
+      api_key: os.environ/PUTER_API_KEY
+
+  - model_name: magistral-medium-2509
+    litellm_params:
+      model: puter/mistral/magistral-medium-2509
+      api_key: os.environ/PUTER_API_KEY
+
+  - model_name: magistral-small-2509
+    litellm_params:
+      model: puter/mistral/magistral-small-2509
+      api_key: os.environ/PUTER_API_KEY
+
+  - model_name: ministral-14b-2512
+    litellm_params:
+      model: puter/mistral/ministral-14b-2512
+      api_key: os.environ/PUTER_API_KEY
+
+  - model_name: ministral-3b-2512
+    litellm_params:
+      model: puter/mistral/ministral-3b-2512
+      api_key: os.environ/PUTER_API_KEY
+
+  - model_name: ministral-8b-2512
+    litellm_params:
+      model: puter/mistral/ministral-8b-2512
+      api_key: os.environ/PUTER_API_KEY
+
+  - model_name: mistral-large-latest
+    litellm_params:
+      model: puter/mistral/mistral-large-latest
+      api_key: os.environ/PUTER_API_KEY
+
+  - model_name: mistral-medium-2508
+    litellm_params:
+      model: puter/mistral/mistral-medium-2508
+      api_key: os.environ/PUTER_API_KEY
+
+  - model_name: mistral-small-2506
+    litellm_params:
+      model: puter/mistral/mistral-small-2506
+      api_key: os.environ/PUTER_API_KEY
+
+  - model_name: open-mistral-7b
+    litellm_params:
+      model: puter/mistral/open-mistral-7b
+      api_key: os.environ/PUTER_API_KEY
+
+  - model_name: open-mistral-nemo
+    litellm_params:
+      model: puter/mistral/open-mistral-nemo
+      api_key: os.environ/PUTER_API_KEY
+
+  - model_name: pixtral-large-2411
+    litellm_params:
+      model: puter/mistral/pixtral-large-2411
+      api_key: os.environ/PUTER_API_KEY
+
+  - model_name: voxtral-mini-2507
+    litellm_params:
+      model: puter/mistral/voxtral-mini-2507
+      api_key: os.environ/PUTER_API_KEY
+
+  - model_name: voxtral-small-2507
+    litellm_params:
+      model: puter/mistral/voxtral-small-2507
+      api_key: os.environ/PUTER_API_KEY
+
+  # ======================================================================
+  # OpenRouter Models - 348 models
+  # Too many to list individually. Use format:
+  #   puter/openrouter/openrouter:<provider>/<model>
+  # Example: puter/openrouter/openrouter:deepseek/deepseek-chat
+  # ======================================================================
+
+  # ======================================================================
+  # Together AI Models - 71 models
+  # Use format: puter/together-ai/<model-id>
+  # ======================================================================
+
+# For a complete list of all 488 models, run:
+# python list_models.py

@@ -1,0 +1,15 @@
+litellm-puter (2.2.0-1) unstable; urgency=medium
+
+  * Initial Debian package release
+  * Complete Poetry-based Python package
+  * Systemd service for background execution
+  * Configuration in /etc/litellm-puter following FHS
+  * Support for 488+ AI models via Puter API
+  * Models from OpenAI, Anthropic, DeepSeek, xAI, Gemini, Mistral
+  * Optional SOCKS5/HTTP/HTTPS proxy support
+  * Comprehensive documentation reorganized
+  * CLI tools: litellm-puter, litellm-puter-gateway
+  * Security hardened systemd service
+  * Dedicated system user (litellm-puter)
+
+ -- aorizondo <aorizondo@users.noreply.github.com>  Tue, 17 Dec 2024 05:30:00 +0000

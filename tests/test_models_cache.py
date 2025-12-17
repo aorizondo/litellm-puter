@@ -5,7 +5,7 @@ This test verifies that our custom puter_models_cache.py works as a
 replacement for putergenai.PuterClient().model_to_driver.
 """
 
-from puter_models_cache import get_model_driver, PuterModelsCache, clear_models_cache
+from litellm_puter.models_cache import get_model_driver, PuterModelsCache, clear_models_cache
 import sys
 
 

@@ -3,7 +3,7 @@
 Test script to verify parameter filtering works correctly.
 """
 
-from puter_provider import filter_model_params, VALID_MODEL_PARAMS, LITELLM_INTERNAL_PARAMS
+from litellm_puter.provider import filter_model_params, VALID_MODEL_PARAMS, LITELLM_INTERNAL_PARAMS
 
 
 def test_filter_model_params():

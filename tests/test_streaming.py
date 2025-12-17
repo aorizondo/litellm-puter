@@ -7,7 +7,7 @@ This script verifies that:
 3. Payload construction works for both streaming and non-streaming
 """
 
-from puter_provider import PuterHTTPHandlerBase, filter_model_params
+from litellm_puter.provider import PuterHTTPHandlerBase, filter_model_params
 
 
 def test_base_class():

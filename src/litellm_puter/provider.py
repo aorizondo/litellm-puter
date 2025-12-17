@@ -20,7 +20,7 @@ from litellm import CustomLLM, ModelResponse
 from litellm.llms.custom_httpx.http_handler import HTTPHandler, AsyncHTTPHandler
 from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObject
 from httpx._types import RequestFiles
-from puter_models_cache import get_model_driver
+from .models_cache import get_model_driver
 
 
 # Valid model parameters that should be passed to the LLM provider

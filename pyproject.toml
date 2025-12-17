@@ -1,0 +1,76 @@
+[tool.poetry]
+name = "litellm-puter"
+version = "2.2.0"
+description = "LiteLLM integration for Puter AI - Access 488+ AI models through a unified gateway"
+authors = ["aorizondo <aorizondo@users.noreply.github.com>"]
+license = "MIT"
+readme = "README.md"
+homepage = "https://github.com/aorizondo/litellm-puter"
+repository = "https://github.com/aorizondo/litellm-puter"
+keywords = ["litellm", "puter", "ai", "llm", "gateway", "openai", "anthropic", "deepseek"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+packages = [
+    { include = "litellm_puter", from = "src" }
+]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+litellm = {extras = ["proxy"], version = "^1.80.10"}
+httpx = {extras = ["socks"], version = "^0.28.0"}
+fastapi = "^0.120.1"
+uvicorn = {extras = ["standard"], version = "^0.31.1"}
+python-dotenv = "^1.0.1"
+pyyaml = "^6.0.2"
+pydantic = "^2.10.3"
+click = "^8.1.8"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.4"
+pytest-asyncio = "^0.24.0"
+pytest-cov = "^6.0.0"
+black = "^24.10.0"
+ruff = "^0.8.4"
+mypy = "^1.14.0"
+types-pyyaml = "^6.0.12"
+
+[tool.poetry.scripts]
+litellm-puter = "litellm_puter.cli:main"
+litellm-puter-gateway = "litellm_puter.gateway:start"
+
+[tool.poetry.plugins."litellm.providers"]
+puter = "litellm_puter.provider:puter_llm"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 100
+target-version = ['py310', 'py311', 'py312']
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --cov=litellm_puter --cov-report=term-missing"

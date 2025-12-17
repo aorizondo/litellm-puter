@@ -1,462 +1,382 @@
-# 🚀 Puter LLM Provider for LiteLLM
+# 🚀 LiteLLM Puter - Unified AI Gateway
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![Poetry](https://img.shields.io/badge/packaging-poetry-blue)](https://python-poetry.org/)
+[![Debian](https://img.shields.io/badge/debian-12%20%7C%2013-red)](https://www.debian.org/)
 
-A professional integration layer between [LiteLLM](https://github.com/BerriAI/litellm) and [Puter's AI API](https://puter.com), providing unified access to multiple LLM providers (OpenAI, Anthropic, OpenRouter, Google, and more) through a single interface.
+A professional, production-ready integration between [LiteLLM](https://github.com/BerriAI/litellm) and [Puter's AI API](https://puter.com), providing unified access to **488+ AI models** from OpenAI, Anthropic, DeepSeek, xAI, Google, Mistral, and more through a single gateway.
 
 ## ✨ Features
 
-- 🎯 **Unified Interface**: Access multiple LLM providers through Puter's API
-- 🔄 **Async Support**: Full support for both synchronous and asynchronous requests
-- 🔌 **Easy Integration**: Drop-in replacement for LiteLLM's standard providers
-- 🛡️ **Type Safety**: Fully typed codebase with comprehensive documentation
-- 📦 **Zero Config**: Works out of the box with minimal setup
-- 🎨 **Multiple Providers**: Support for OpenAI, Anthropic, OpenRouter, Google, and more
+- 🎯 **488+ AI Models**: Access models from 8+ providers through one API
+- 📦 **Easy Deployment**: Debian package with systemd service included  
+- 🔄 **Production Ready**: Async support, streaming, error handling
+- 🔐 **Secure**: FHS-compliant configuration, dedicated system user
+- 🛠️ **CLI Tools**: Built-in commands for management and configuration
+- 🌐 **OpenAI Compatible**: Drop-in replacement for OpenAI API
+- 📊 **Monitoring**: Systemd integration with journald logging
+- 🔌 **Proxy Support**: Optional SOCKS5/HTTP/HTTPS proxy support
 
-## 📋 Table of Contents
+## 📦 Supported Models
 
-- [Installation](#-installation)
-- [Quick Start](#-quick-start)
-- [Usage Examples](#-usage-examples)
-- [Supported Models](#-supported-models)
-- [Configuration](#-configuration)
-- [API Reference](#-api-reference)
-- [Troubleshooting](#-troubleshooting)
-- [Contributing](#-contributing)
-- [License](#-license)
+### Priority Providers (65 models configured)
 
-## 📦 Installation
+| Provider | Models | Examples |
+|----------|---------|----------|
+| **OpenAI** | 23 | gpt-4o, gpt-5, o1, o3, o4 |
+| **Anthropic** | 10 | claude-3-5-sonnet, claude-4, claude-opus |
+| **DeepSeek** | 2 | deepseek-chat, deepseek-reasoner |
+| **xAI** | 8 | grok-2, grok-3, grok-beta |
+| **Google Gemini** | 6 | gemini-2.5-pro, gemini-3-preview |
+| **Mistral AI** | 16 | mistral-large, codestral, ministral |
 
-### Prerequisites
+### Additional Providers (423+ models)
 
-- Python 3.8 or higher
-- A Puter API key ([Get one here](https://puter.com))
+- **OpenRouter**: 348 models from various providers
+- **Together AI**: 71 models
 
-### Install Dependencies
+**Total: 488+ models available!** 🎉
 
-```bash
-# Clone the repository
-git clone https://github.com/yourusername/litellm-puter.git
-cd litellm-puter
-
-# Install required packages
-pip install -r requirements.txt
-```
-
-### Required Packages
-
-```
-litellm>=1.80.0
-httpx>=0.28.0
-putergenai>=2.1.0
-boto3>=1.42.0
-python-dotenv>=1.0.0
-```
+See [docs/api/RESUMEN_MODELOS.md](docs/api/RESUMEN_MODELOS.md) for the complete list.
 
 ## 🚀 Quick Start
 
-### 1. Get Your API Key
+### Option 1: Debian Package (Recommended)
 
-1. Visit [puter.com](https://puter.com)
-2. Sign in or create an account
-3. Navigate to **Settings → API Keys**
-4. Click **"Create new API key"**
-5. Copy your API key
-
-### 2. Configure Environment
-
-Create a `.env` file in your project root:
+Perfect for Debian 12/13 servers:
 
 ```bash
-PUTER_API_KEY=your_api_key_here
+# Install the package
+sudo dpkg -i litellm-puter_2.2.0-1_all.deb
+sudo apt-get install -f
+
+# Configure your API key
+sudo nano /etc/litellm-puter/environment
+# Add: PUTER_API_KEY=your_key_here
+
+# Start the service
+sudo systemctl enable litellm-puter
+sudo systemctl start litellm-puter
+
+# Check status
+sudo systemctl status litellm-puter
+
+# Access the gateway
+curl http://localhost:4000/health
 ```
 
-### 3. Basic Usage
+📚 See [docs/setup/DEBIAN_PACKAGE.md](docs/setup/DEBIAN_PACKAGE.md) for detailed instructions.
+
+### Option 2: Poetry (Development)
+
+```bash
+# Install dependencies
+poetry install
+
+# Set up environment
+cp config/.env.example .env
+nano .env  # Add your PUTER_API_KEY
+
+# Start the gateway
+poetry run litellm-puter-gateway --config config/litellm_config.yaml
+```
+
+### Option 3: Pip Install
+
+```bash
+# Install from source
+pip install -e .
+
+# Configure environment
+export PUTER_API_KEY=your_key_here
+
+# Start the gateway
+litellm-puter-gateway --config config/litellm_config.yaml
+```
+
+## 💻 Usage Examples
+
+### Python SDK
 
 ```python
 import litellm
-from puter_provider import setup_puter_provider
-from dotenv import load_dotenv
+from litellm_puter import puter_llm
 
-# Load environment variables
-load_dotenv()
+# Register the provider
+litellm.custom_provider_map = [
+    {"provider": "puter", "custom_handler": puter_llm}
+]
 
-# Register Puter as a custom provider
-setup_puter_provider()
-
-# Make a completion request
+# Use any model
 response = litellm.completion(
-    model="puter/openrouter:deepseek/deepseek-chat",
-    messages=[
-        {"role": "user", "content": "Hello, how are you?"}
-    ],
+    model="puter/openai/gpt-4o",
+    messages=[{"role": "user", "content": "Hello!"}]
 )
 
 print(response.choices[0].message.content)
 ```
 
-## 💡 Usage Examples
+### REST API
 
-### Example 1: Custom Provider (Recommended)
-
-This method registers Puter as a first-class provider in LiteLLM:
-
-```python
-import litellm
-from puter_provider import setup_puter_provider
-from dotenv import load_dotenv
-
-load_dotenv()
-setup_puter_provider()
-
-response = litellm.completion(
-    model="puter/openrouter:deepseek/deepseek-chat",
-    messages=[{"role": "user", "content": "Explain quantum computing"}],
-)
-```
-
-### Example 2: Direct HTTP Handler
-
-For more control over the request configuration:
-
-```python
-import os
-import litellm
-from puter_provider import PuterHTTPHandler
-from dotenv import load_dotenv
-
-load_dotenv()
-os.environ['EXPERIMENTAL_OPENAI_BASE_LLM_HTTP_HANDLER'] = "True"
-
-response = litellm.completion(
-    client=PuterHTTPHandler(api_key=os.getenv("PUTER_API_KEY")),
-    model="openrouter/openrouter:deepseek/deepseek-chat",
-    api_key="none",
-    messages=[{"role": "user", "content": "Tell me a joke"}],
-)
-```
-
-### Example 3: Async Usage
-
-For concurrent requests and better performance:
-
-```python
-import asyncio
-import litellm
-from puter_provider import setup_puter_provider
-from dotenv import load_dotenv
-
-load_dotenv()
-setup_puter_provider()
-
-async def main():
-    response = await litellm.acompletion(
-        model="puter/openrouter:deepseek/deepseek-chat",
-        messages=[{"role": "user", "content": "Hello async!"}],
-    )
-    print(response.choices[0].message.content)
-
-asyncio.run(main())
-```
-
-### Example 4: Multiple Providers
-
-Access different LLM providers through Puter:
-
-```python
-import litellm
-from puter_provider import setup_puter_provider
-
-setup_puter_provider()
-
-# Use DeepSeek via OpenRouter
-response1 = litellm.completion(
-    model="puter/openrouter:deepseek/deepseek-chat",
-    messages=[{"role": "user", "content": "Hello"}]
-)
-
-# Use Claude directly
-response2 = litellm.completion(
-    model="puter/claude-sonnet-4-5-20250929",
-    messages=[{"role": "user", "content": "Hello"}]
-)
-
-# Use GPT-4 via OpenAI
-response3 = litellm.completion(
-    model="puter/openai:gpt-4",
-    messages=[{"role": "user", "content": "Hello"}]
-)
-```
-
-## 🎯 Supported Models
-
-### OpenRouter Models
-
-Access any OpenRouter model using the format: `puter/openrouter:provider/model`
-
-```python
-"puter/openrouter:deepseek/deepseek-chat"
-"puter/openrouter:google/gemini-pro"
-"puter/openrouter:anthropic/claude-3-opus"
-"puter/openrouter:meta-llama/llama-3-70b"
-"puter/openrouter:mistralai/mixtral-8x7b"
-```
-
-### Anthropic/Claude Models
-
-Direct access to Claude models:
-
-```python
-"puter/claude-sonnet-4-5-20250929"
-"puter/claude-3-opus-20240229"
-"puter/claude-3-sonnet-20240229"
-"puter/claude-3-haiku-20240307"
-```
-
-### OpenAI Models
-
-Access OpenAI models:
-
-```python
-"puter/openai:gpt-4"
-"puter/openai:gpt-4-turbo"
-"puter/openai:gpt-3.5-turbo"
-```
-
-### Google Models
-
-Access Google's models:
-
-```python
-"puter/google:gemini-pro"
-"puter/google:gemini-pro-vision"
-```
-
-## ⚙️ Configuration
-
-### Environment Variables
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `PUTER_API_KEY` | Yes | Your Puter API key |
-| `EXPERIMENTAL_OPENAI_BASE_LLM_HTTP_HANDLER` | Auto-set | Enables custom HTTP handler (set automatically) |
-| `LITELLM_ANTHROPIC_DISABLE_URL_SUFFIX` | Optional | Disables URL suffix for Anthropic models |
-
-### Advanced Configuration
-
-```python
-import os
-import litellm
-from puter_provider import PuterHTTPHandler
-
-# Custom timeout
-os.environ['LITELLM_REQUEST_TIMEOUT'] = "60"
-
-# Enable debug logging
-litellm.set_verbose = True
-
-# Use custom HTTP handler with options
-client = PuterHTTPHandler(
-    api_key=os.getenv("PUTER_API_KEY"),
-)
-
-response = litellm.completion(
-    client=client,
-    model="openrouter/openrouter:deepseek/deepseek-chat",
-    api_key="none",
-    messages=[{"role": "user", "content": "Hello"}],
-    temperature=0.7,
-    max_tokens=1000,
-)
-```
-
-## 📖 API Reference
-
-### `setup_puter_provider()`
-
-Registers Puter as a custom provider in LiteLLM.
-
-```python
-from puter_provider import setup_puter_provider
-
-puter_llm = setup_puter_provider()
-```
-
-**Returns:** `PuterLLM` instance
-
----
-
-### `PuterHTTPHandler`
-
-Synchronous HTTP handler for Puter API requests.
-
-```python
-from puter_provider import PuterHTTPHandler
-
-handler = PuterHTTPHandler(api_key="your_api_key")
-```
-
-**Parameters:**
-- `api_key` (str): Your Puter API key
-
-**Raises:**
-- `ValueError`: If API key is None or "None"
-
----
-
-### `PuterAsyncHTTPHandler`
-
-Asynchronous HTTP handler for Puter API requests.
-
-```python
-from puter_provider import PuterAsyncHTTPHandler
-
-handler = PuterAsyncHTTPHandler(api_key="your_api_key")
-```
-
-**Parameters:**
-- `api_key` (str): Your Puter API key
-
-**Raises:**
-- `ValueError`: If API key is None or "None"
-
----
-
-### `PuterLLM`
-
-Custom LLM implementation for Puter provider.
-
-```python
-from puter_provider import PuterLLM
-
-puter_llm = PuterLLM()
-
-# Synchronous completion
-response = puter_llm.completion(
-    model="puter/openrouter:deepseek/deepseek-chat",
-    messages=[{"role": "user", "content": "Hello"}]
-)
-
-# Asynchronous completion
-response = await puter_llm.acompletion(
-    model="puter/openrouter:deepseek/deepseek-chat",
-    messages=[{"role": "user", "content": "Hello"}]
-)
-```
-
-## 🔧 Troubleshooting
-
-### Common Issues
-
-#### 1. API Key Not Found
-
-**Error:** `ValueError: PUTER_API_KEY environment variable is required`
-
-**Solution:**
-```bash
-# Make sure .env file exists and contains your API key
-echo "PUTER_API_KEY=your_api_key_here" > .env
-
-# Or export it in your shell
-export PUTER_API_KEY="your_api_key_here"
-```
-
-#### 2. HTTP 403 Forbidden
-
-**Error:** `APIError: OpenrouterException - Forbidden`
-
-**Possible Causes:**
-- Invalid or expired API key
-- API key doesn't have required permissions
-- Rate limit exceeded
-
-**Solution:**
-1. Verify your API key is correct
-2. Check your Puter account status
-3. Generate a new API key if needed
-4. Ensure you're not exceeding rate limits
-
-#### 3. Module Import Error
-
-**Error:** `ModuleNotFoundError: No module named 'puter_provider'`
-
-**Solution:**
-```bash
-# Make sure puter_provider.py is in your Python path
-import sys
-sys.path.insert(0, '/path/to/litellm-puter')
-
-# Or install as a package
-cd litellm-puter
-pip install -e .
-```
-
-#### 4. Origin Header Missing
-
-**Error:** Authentication fails silently
-
-**Solution:** The provider automatically includes the `Origin` header. If you're still having issues, verify that you're not overriding headers in custom code.
-
-### Debug Mode
-
-Enable verbose logging to diagnose issues:
-
-```python
-import litellm
-
-# Enable debug mode
-litellm.set_verbose = True
-
-# Now make your request
-response = litellm.completion(...)
-```
-
-### Getting Help
-
-If you're still experiencing issues:
-
-1. Check the [Issues page](https://github.com/yourusername/litellm-puter/issues)
-2. Join the [Puter Discord](https://discord.gg/puter)
-3. Contact [Puter Support](https://puter.com/support)
-
-## 📝 Examples Directory
-
-The `examples/` directory contains complete, runnable examples:
-
-```
-examples/
-├── basic_usage.py          # Simple completion request
-├── http_handler_usage.py   # Direct HTTP handler usage
-├── async_usage.py          # Async/concurrent requests
-└── multiple_providers.py   # Using different LLM providers
-```
-
-Run any example:
+Once the gateway is running:
 
 ```bash
-cd examples
-python basic_usage.py
+# Chat completion
+curl http://localhost:4000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gpt-4o-mini",
+    "messages": [{"role": "user", "content": "Hello!"}]
+  }'
+
+# Streaming
+curl http://localhost:4000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "claude-3-5-sonnet",
+    "messages": [{"role": "user", "content": "Tell me a story"}],
+    "stream": true
+  }'
 ```
+
+### OpenAI Python Client
+
+```python
+from openai import OpenAI
+
+# Point to your gateway
+client = OpenAI(
+    base_url="http://localhost:4000/v1",
+    api_key="dummy"  # Not used, but required by SDK
+)
+
+# Use any configured model
+response = client.chat.completions.create(
+    model="gpt-4o-mini",
+    messages=[{"role": "user", "content": "Hello!"}]
+)
+
+print(response.choices[0].message.content)
+```
+
+## 🛠️ CLI Commands
+
+```bash
+# Start the gateway
+litellm-puter-gateway --config /etc/litellm-puter/config.yaml
+
+# List available models
+litellm-puter list-models
+
+# List models in JSON format
+litellm-puter list-models --format json
+
+# Generate sample configuration
+litellm-puter generate-config -o my_config.yaml
+
+# Show version
+litellm-puter version
+
+# Get help
+litellm-puter --help
+```
+
+## 📂 Project Structure
+
+```
+litellm-puter/
+├── src/litellm_puter/       # Python package source
+│   ├── __init__.py          # Package initialization
+│   ├── provider.py          # Puter LLM provider implementation
+│   ├── models_cache.py      # Model caching and discovery
+│   ├── cli.py               # Command-line interface
+│   └── gateway.py           # Gateway server module
+├── config/                  # Configuration files
+│   ├── litellm_config.yaml  # Model configuration (65 models)
+│   └── .env.example         # Environment variables template
+├── docs/                    # Documentation
+│   ├── setup/               # Installation guides
+│   ├── configuration/       # Configuration guides
+│   ├── api/                 # API documentation
+│   └── troubleshooting/     # Troubleshooting guides
+├── debian/                  # Debian package files
+│   ├── control              # Package metadata
+│   ├── rules                # Build rules
+│   ├── postinst             # Post-installation script
+│   ├── prerm                # Pre-removal script
+│   ├── postrm               # Post-removal script
+│   └── litellm-puter.service  # Systemd service
+├── tests/                   # Test suite
+├── pyproject.toml           # Poetry configuration
+└── README.md                # This file
+```
+
+## 📚 Documentation
+
+- **[Debian Package Guide](docs/setup/DEBIAN_PACKAGE.md)** - Building and installing the .deb package
+- **[Gateway Setup](docs/setup/GATEWAY_SETUP.md)** - Setting up the gateway server
+- **[Dependencies](docs/setup/INSTALACION_DEPENDENCIAS.md)** - Manual dependency installation
+- **[Proxy Configuration](docs/configuration/PROXY_USAGE.md)** - Configuring proxy support
+- **[Model List](docs/api/RESUMEN_MODELOS.md)** - Complete list of 488+ models
+- **[Changelog](docs/troubleshooting/COMPLETE_CHANGELOG_v2.2.0.md)** - Complete changelog
+
+## 🔧 Configuration
+
+### Debian Package
+
+Configuration files are in `/etc/litellm-puter/`:
+
+- **`environment`** - API keys and environment variables
+- **`config.yaml`** - Model configuration
+
+```bash
+# Edit environment
+sudo nano /etc/litellm-puter/environment
+
+# Edit model configuration  
+sudo nano /etc/litellm-puter/config.yaml
+
+# Restart after changes
+sudo systemctl restart litellm-puter
+```
+
+### Development/Standalone
+
+Use `.env` file in project root:
+
+```bash
+cp config/.env.example .env
+nano .env
+```
+
+Required variables:
+
+```bash
+PUTER_API_KEY=your_puter_api_key_here
+```
+
+Optional variables:
+
+```bash
+USE_PROXY=false
+SOCKS5_PROXY=socks5://proxy.server:port
+```
+
+## 🔐 Security
+
+### Debian Package Security
+
+- Dedicated system user (`litellm-puter`)
+- Configuration in `/etc/litellm-puter/` with restricted permissions (750)
+- API keys stored in environment file with mode 640
+- Systemd service with security hardening:
+  - `NoNewPrivileges=true`
+  - `PrivateTmp=true`
+  - `ProtectSystem=strict`
+  - `ProtectHome=true`
+
+### Production Recommendations
+
+1. **Use a reverse proxy** (nginx/apache) with SSL
+2. **Firewall rules** to restrict access
+3. **API authentication** for external access
+4. **Rate limiting** to prevent abuse
+5. **Monitor logs** regularly
+
+Example nginx configuration:
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name ai-gateway.example.com;
+    
+    ssl_certificate /path/to/cert.pem;
+    ssl_certificate_key /path/to/key.pem;
+    
+    location / {
+        proxy_pass http://127.0.0.1:4000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+## 📊 Monitoring
+
+### Systemd Service
+
+```bash
+# Service status
+sudo systemctl status litellm-puter
+
+# Real-time logs
+sudo journalctl -u litellm-puter -f
+
+# Recent logs
+sudo journalctl -u litellm-puter -n 100
+
+# Logs since last boot
+sudo journalctl -u litellm-puter -b
+```
+
+### Health Check
+
+```bash
+curl http://localhost:4000/health
+```
+
+### Metrics
+
+The gateway exposes metrics at:
+
+- `/metrics` - Prometheus-compatible metrics
+- `/health` - Health check endpoint
 
 ## 🧪 Testing
 
-Run the test suite:
+```bash
+# Run tests with Poetry
+poetry run pytest
+
+# Run tests with coverage
+poetry run pytest --cov=litellm_puter --cov-report=html
+
+# Run specific test
+poetry run pytest tests/test_simple.py -v
+```
+
+## 🏗️ Building
+
+### Build Debian Package
 
 ```bash
-# Basic test
-python test_simple.py
+# Install build dependencies
+sudo apt install -y debhelper dh-python python3-all python3-setuptools build-essential
 
-# Direct handler test
-python test_direct.py
+# Build the package
+dpkg-buildpackage -us -uc -b
 
-# API test
-python test_puter_api_direct.py
+# Package will be in parent directory
+cd ..
+ls -lh litellm-puter_*.deb
+```
+
+### Build Python Wheel
+
+```bash
+# Build with Poetry
+poetry build
+
+# Outputs to dist/
+ls -lh dist/
 ```
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please follow these guidelines:
+Contributions are welcome! Please:
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
@@ -467,47 +387,55 @@ Contributions are welcome! Please follow these guidelines:
 ### Development Setup
 
 ```bash
-# Clone your fork
-git clone https://github.com/yourusername/litellm-puter.git
+# Clone the repository
+git clone https://github.com/aorizondo/litellm-puter.git
 cd litellm-puter
 
-# Install in editable mode
-pip install -e .
+# Install with dev dependencies
+poetry install
 
-# Install development dependencies
-pip install pytest black isort mypy
+# Run tests
+poetry run pytest
+
+# Format code
+poetry run black src/
+
+# Lint
+poetry run ruff check src/
 ```
 
-### Code Style
-
-- Follow PEP 8
-- Use type hints
-- Add docstrings to all public functions
-- Run `black` and `isort` before committing
-
-## 📄 License
+## 📝 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 🙏 Acknowledgments
 
 - [LiteLLM](https://github.com/BerriAI/litellm) - Universal LLM API interface
-- [Puter](https://puter.com) - Cloud platform and AI API
-- [OpenRouter](https://openrouter.ai) - LLM routing service
+- [Puter](https://puter.com) - AI API aggregation platform
+- All the amazing AI providers making their models accessible
 
-## 🔗 Links
+## 📞 Support
 
-- [Puter Documentation](https://docs.puter.com)
-- [LiteLLM Documentation](https://docs.litellm.ai)
-- [Puter GitHub](https://github.com/heyputer/puter)
-- [LiteLLM GitHub](https://github.com/BerriAI/litellm)
+- **Documentation**: [docs/](docs/)
+- **Issues**: [GitHub Issues](https://github.com/aorizondo/litellm-puter/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/aorizondo/litellm-puter/discussions)
 
-## 📮 Contact
+## 🗺️ Roadmap
 
-- **Issues**: [GitHub Issues](https://github.com/yourusername/litellm-puter/issues)
-- **Discord**: [Puter Discord](https://discord.gg/puter)
-- **Email**: support@puter.com
+- [x] Poetry-based package management
+- [x] Debian package with systemd service
+- [x] 488+ models support
+- [x] Proxy support (SOCKS5/HTTP/HTTPS)
+- [x] Comprehensive CLI tools
+- [x] Production-ready documentation
+- [ ] Docker image
+- [ ] Kubernetes Helm chart
+- [ ] Monitoring dashboard
+- [ ] Rate limiting per model
+- [ ] Cost tracking and analytics
 
 ---
 
-Made with ❤️ by the Puter community
+**Made with ❤️ by [aorizondo](https://github.com/aorizondo)**
+
+**⭐ Star this project if you find it useful!**
