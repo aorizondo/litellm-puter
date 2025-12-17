@@ -10,6 +10,7 @@ Author: Puter Team
 License: MIT
 """
 
+import os
 import httpx
 import litellm
 from typing import Optional, List, Dict, Any, Union
@@ -19,7 +20,7 @@ from litellm import CustomLLM, ModelResponse
 from litellm.llms.custom_httpx.http_handler import HTTPHandler, AsyncHTTPHandler
 from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObject
 from httpx._types import RequestFiles
-from putergenai.putergenai import PuterClient
+from puter_models_cache import get_model_driver
 
 
 # Valid model parameters that should be passed to the LLM provider
@@ -171,7 +172,9 @@ class PuterHTTPHandlerBase:
         filtered_args = filter_model_params(request_data)
         
         # Determine the appropriate driver for this model
-        driver = PuterClient().model_to_driver.get(model, "openai-completion")
+        # Using our own cache instead of putergenai dependency
+        puter_token = os.getenv("PUTER_TOKEN") or os.getenv("PUTER_API_KEY")
+        driver = get_model_driver(model, token=puter_token)
         
         # Construct Puter API payload with filtered arguments
         payload = {
