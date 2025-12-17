@@ -23,8 +23,11 @@ print("\n🚀 Realizando una petición de prueba a Puter AI...")
 
 try:
     # Hacer una petición simple
+    # Formato: puter/<provider>/<model>
+    # Provider = openai (determined by the driver openai-completion)
+    # Model = gpt-4o-mini (the actual model identifier)
     response = litellm.completion(
-        model="puter/openrouter:deepseek/deepseek-chat",
+        model="puter/openai/gpt-4o-mini",
         messages=[{"role": "user", "content": "Responde solo con 'Hola' en español"}],
     )
     

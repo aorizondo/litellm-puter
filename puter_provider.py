@@ -261,16 +261,21 @@ class PuterAsyncHTTPHandler(AsyncHTTPHandler, PuterHTTPHandlerBase):
     Supports both streaming and non-streaming responses.
     """
     
-    def __init__(self, api_key: str, *args, **kwargs):
+    def __init__(self, api_key: str, *args, custom_httpx_client=None, **kwargs):
         """
         Initialize the async HTTP handler.
         
         Args:
             api_key: Puter API key for authentication
+            custom_httpx_client: Optional custom httpx.AsyncClient (for proxy support, etc.)
             *args, **kwargs: Additional arguments passed to parent class
         """
         PuterHTTPHandlerBase.__init__(self, api_key)
         AsyncHTTPHandler.__init__(self, *args, **kwargs)
+        
+        # Override the client if a custom one was provided
+        if custom_httpx_client:
+            self.client = custom_httpx_client
 
     async def post(
         self,
@@ -339,16 +344,21 @@ class PuterHTTPHandler(HTTPHandler, PuterHTTPHandlerBase):
     Supports both streaming and non-streaming responses.
     """
     
-    def __init__(self, api_key: str, *args, **kwargs):
+    def __init__(self, api_key: str, *args, custom_httpx_client=None, **kwargs):
         """
         Initialize the sync HTTP handler.
         
         Args:
             api_key: Puter API key for authentication
+            custom_httpx_client: Optional custom httpx.Client (for proxy support, etc.)
             *args, **kwargs: Additional arguments passed to parent class
         """
         PuterHTTPHandlerBase.__init__(self, api_key)
         HTTPHandler.__init__(self, *args, **kwargs)
+        
+        # Override the client if a custom one was provided
+        if custom_httpx_client:
+            self.client = custom_httpx_client
 
     def post(
         self,
@@ -420,6 +430,9 @@ class PuterLLM(CustomLLM):
         Transforms model names and filters parameters for Puter API.
         
         Only passes valid model parameters to avoid errors from LiteLLM internal params.
+        
+        Note: LiteLLM automatically strips the 'puter/' prefix before calling this method,
+        so we receive the model in format '<provider>/<model>' (e.g., 'openai/gpt-4o')
         """
         import os
 
@@ -433,13 +446,31 @@ class PuterLLM(CustomLLM):
 
         # Enable experimental HTTP handler support
         os.environ['EXPERIMENTAL_OPENAI_BASE_LLM_HTTP_HANDLER'] = "True"
+        
+        # Configure proxy if enabled (optional - for bypassing IP blocks)
+        use_proxy = os.getenv("USE_PROXY", "false").lower() == "true"
+        http_client = None
+        
+        if use_proxy:
+            proxy_url = os.getenv("SOCKS5_PROXY") or os.getenv("HTTPS_PROXY") or os.getenv("HTTP_PROXY")
+            if proxy_url:
+                # httpx will use ALL_PROXY for all protocols including HTTPS
+                os.environ['ALL_PROXY'] = proxy_url
+                
+                # Create custom httpx client with proxy and disabled SSL verification for SOCKS
+                if proxy_url.startswith('socks'):
+                    http_client = httpx.Client(proxy=proxy_url, verify=False)
 
         # Filter kwargs to only include valid model parameters
         filtered_kwargs = filter_model_params(kwargs)
         
         # Build completion arguments with only necessary parameters
+        client_args = {'api_key': api_key}
+        if http_client:
+            client_args['custom_httpx_client'] = http_client
+            
         completion_args = {
-            'client': kwargs['client'](api_key=api_key),
+            'client': kwargs['client'](**client_args),
             'api_key': api_key,
             'base_url': 'https://api.puter.com/drivers/call',
             'extra_headers': {
@@ -493,7 +524,19 @@ def setup_puter_provider():
             messages=[{"role": "user", "content": "Hello!"}]
         )
     """
-    litellm.custom_provider_map = [
-        {"provider": "puter", "custom_handler": puter_llm}
-    ]
+    # Get existing custom providers or create new list
+    if not hasattr(litellm, 'custom_provider_map') or litellm.custom_provider_map is None:
+        litellm.custom_provider_map = []
+    
+    # Check if puter is already registered
+    puter_registered = any(
+        provider.get('provider') == 'puter' 
+        for provider in litellm.custom_provider_map
+    )
+    
+    if not puter_registered:
+        litellm.custom_provider_map.append(
+            {"provider": "puter", "custom_handler": puter_llm}
+        )
+    
     return puter_llm

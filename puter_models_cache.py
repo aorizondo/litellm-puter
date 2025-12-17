@@ -129,11 +129,22 @@ class PuterModelsCache:
             "Referer": "https://puter.com/",
         }
         
+        # Configure proxy if enabled (optional - for bypassing IP blocks)
+        use_proxy = os.getenv("USE_PROXY", "false").lower() == "true"
+        proxy_url = None
+        if use_proxy:
+            proxy_url = os.getenv("SOCKS5_PROXY") or os.getenv("HTTPS_PROXY") or os.getenv("HTTP_PROXY")
+        
+        # Disable SSL verification for SOCKS proxies (they often have cert issues)
+        verify = not (proxy_url and proxy_url.startswith('socks'))
+        
         try:
             response = httpx.get(
                 self.API_URL,
                 headers=headers,
-                timeout=10.0
+                timeout=10.0,
+                proxy=proxy_url,  # httpx uses 'proxy' not 'proxies'
+                verify=verify
             )
             response.raise_for_status()
             data = response.json()
@@ -354,6 +365,106 @@ def get_all_model_drivers(token: Optional[str] = None) -> Dict[str, str]:
 def clear_models_cache() -> None:
     """Clear the models cache."""
     _puter_cache.clear_cache()
+
+
+def map_driver_to_provider(driver: str) -> str:
+    """
+    Map Puter driver name to LiteLLM provider name.
+    
+    This is needed because LiteLLM requires the provider name to properly
+    parse responses from the Puter API.
+    
+    Args:
+        driver: Puter driver name (e.g., "openai-completion", "claude", "deepseek")
+        
+    Returns:
+        LiteLLM provider name (e.g., "openai", "anthropic", "deepseek")
+        
+    Examples:
+        >>> map_driver_to_provider("openai-completion")
+        "openai"
+        >>> map_driver_to_provider("claude")
+        "anthropic"
+        >>> map_driver_to_provider("openrouter")
+        "openrouter"
+    """
+    # Mapping from Puter driver names to LiteLLM provider names
+    driver_mapping = {
+        # OpenAI
+        "openai-completion": "openai",
+        "openai": "openai",
+        
+        # Anthropic
+        "claude": "anthropic",
+        "anthropic": "anthropic",
+        
+        # DeepSeek
+        "deepseek": "deepseek",
+        
+        # Google
+        "gemini": "gemini",
+        "google": "gemini",
+        "google-ai-studio": "gemini",
+        
+        # Mistral
+        "mistral": "mistral",
+        
+        # xAI
+        "xai": "xai",
+        "grok": "xai",
+        
+        # OpenRouter (proxy for multiple providers)
+        "openrouter": "openrouter",
+        
+        # Meta/Llama
+        "llama": "together_ai",
+        "meta": "together_ai",
+        
+        # Cohere
+        "cohere": "cohere",
+        
+        # AI21
+        "ai21": "ai21",
+    }
+    
+    # Try exact match first
+    if driver in driver_mapping:
+        return driver_mapping[driver]
+    
+    # Try matching by prefix (e.g., "openai-chat" -> "openai")
+    for driver_prefix, provider in driver_mapping.items():
+        if driver.startswith(driver_prefix):
+            return provider
+    
+    # If no match found, return the driver as-is
+    # LiteLLM will try to use it directly
+    return driver
+
+
+def get_model_provider(model: str, token: Optional[str] = None) -> str:
+    """
+    Get the LiteLLM provider name for a model.
+    
+    This combines get_model_driver() with map_driver_to_provider() to return
+    the provider name that LiteLLM expects.
+    
+    Args:
+        model: Model name/ID
+        token: Optional Puter token
+        
+    Returns:
+        LiteLLM provider name
+        
+    Examples:
+        >>> get_model_provider("gpt-4o")
+        "openai"
+        >>> get_model_provider("claude-3-5-sonnet-20241022")
+        "anthropic"
+        >>> get_model_provider("deepseek-chat")
+        "deepseek"
+    """
+    driver = get_model_driver(model, token)
+    return map_driver_to_provider(driver)
 
 
 if __name__ == "__main__":
