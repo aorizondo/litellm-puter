@@ -222,7 +222,7 @@ class PuterHTTPHandlerBase:
         if not response_json.get('success', True):
             # Return only the error content for LiteLLM to parse
             error_content = response_json.get('error', {})
-            puter_response._content = bytes(dumps(error_content).encode())
+            # puter_response._content = bytes(dumps(error_content).encode())
             # Set appropriate status code if available
             if 'status' in error_content:
                 puter_response.status_code = error_content['status']
