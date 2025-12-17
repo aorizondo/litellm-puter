@@ -30,7 +30,7 @@ print("🚀 Making request to Puter API...\n")
 
 # Make a simple completion request
 response = litellm.completion(
-    model="puter/openrouter:deepseek/deepseek-chat",
+    model="puter/anthropic/claude-sonnet-4-5-20250929",
     messages=[
         {
             "role": "user",

@@ -43,9 +43,9 @@ async def main():
     
     # Define multiple requests
     requests = [
-        ("What is 2+2?", "puter/openrouter/openrouter:deepseek/deepseek-chat"),
-        ("Name a color.", "puter/openrouter/openrouter:deepseek/deepseek-chat"),
-        ("What's the capital of France?", "puter/openrouter/openrouter:deepseek/deepseek-chat"),
+        ("What is 2+2?", "puter/anthropic/claude-sonnet-4-5-20250929"),
+        ("Name a color.", "puter/anthropic/claude-sonnet-4-5-20250929"),
+        ("What's the capital of France?", "puter/anthropic/claude-sonnet-4-5-20250929"),
     ]
     
     # Execute all requests concurrently

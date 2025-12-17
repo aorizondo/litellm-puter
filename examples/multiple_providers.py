@@ -30,17 +30,17 @@ setup_puter_provider()
 models = [
     {
         "name": "DeepSeek (via OpenRouter)",
-        "model": "puter/openrouter:deepseek/deepseek-chat",
+        "model": "puter/openrouter/openrouter:deepseek/deepseek-chat",
         "prompt": "Say 'Hello' in Japanese"
     },
     {
         "name": "Claude Sonnet",
-        "model": "puter/claude-sonnet-4-5-20250929",
+        "model": "puter/anthropic/claude-sonnet-4-5-20250929",
         "prompt": "Say 'Hello' in French"
     },
     {
         "name": "GPT-4 (via OpenAI)",
-        "model": "puter/openai:gpt-4",
+        "model": "puter/openai/openai:gpt-4",
         "prompt": "Say 'Hello' in Spanish"
     },
 ]

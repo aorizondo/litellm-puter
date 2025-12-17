@@ -33,7 +33,7 @@ print("🚀 Making request using PuterHTTPHandler directly...\n")
 # Create completion with custom HTTP handler
 response = litellm.completion(
     client=PuterHTTPHandler(api_key=api_key),
-    model="openrouter/openrouter:deepseek/deepseek-chat",
+    model="openrouter/openrouter/openrouter:deepseek/deepseek-chat",
     api_key="none",  # Not used, authentication is handled by PuterHTTPHandler
     messages=[
         {
