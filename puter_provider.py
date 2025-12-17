@@ -254,80 +254,27 @@ class PuterLLM(CustomLLM):
     This class integrates with LiteLLM's custom provider system, allowing
     Puter to be used as a first-class provider alongside OpenAI, Anthropic, etc.
     """
-    
-    def completion(self, *args, **kwargs) -> ModelResponse:
+    def puter_completion_args(self, *args, **kwargs):
         """
-        Handle synchronous completion requests.
-        
         Transforms model names from "puter/provider:model" format to the
         appropriate format for the underlying provider.
         """
         import os
-        
-        # Extract and transform model name
-        # Input:  "puter/openrouter:deepseek/deepseek-chat"
-        # Output: "openrouter/openrouter:deepseek/deepseek-chat"
-        original_model = kwargs.get('model', '')
-        
-        if original_model.startswith('puter/'):
-            # Remove "puter/" prefix
-            puter_model = original_model[6:]
-            
-            # Detect provider from model string
-            if ':' in puter_model:
-                # Format: "openrouter:deepseek/deepseek-chat"
-                provider = puter_model.split(':')[0]
-                transformed_model = f"{provider}/{puter_model}"
-            else:
-                # Format: "claude-sonnet-4-5-20250929"
-                transformed_model = f"anthropic/{puter_model}"
-            
-            kwargs['model'] = transformed_model
-        
-        # Get API key from environment
-        api_key = os.getenv("PUTER_API_KEY")
-        if not api_key:
-            raise ValueError(
-                "PUTER_API_KEY environment variable is required. "
-                "Get your API key from https://puter.com/app/settings"
-            )
-        
-        # Enable experimental HTTP handler support
-        os.environ['EXPERIMENTAL_OPENAI_BASE_LLM_HTTP_HANDLER'] = "True"
-        
-        # Create HTTP client with Puter handler
-        kwargs['client'] = PuterHTTPHandler(api_key=api_key)
-        kwargs['api_key'] = "none"  # Placeholder, actual auth is in handler
-        
-        # Make the request through LiteLLM
-        return litellm.completion(*args, **kwargs)
 
-    async def acompletion(self, *args, **kwargs) -> ModelResponse:
-        """
-        Handle asynchronous completion requests.
-        
-        Transforms model names from "puter/provider:model" format to the
-        appropriate format for the underlying provider.
-        """
-        import os
-        
         # Get API key from environment
         api_key = os.getenv("PUTER_API_KEY")
         if not api_key:
             raise ValueError(
                 "PUTER_API_KEY environment variable is required. "
-                "Get your API key from https://puter.com/app/settings"
+                "Get your API key from https://puter.com/"
             )
-        
+
         # Enable experimental HTTP handler support
         os.environ['EXPERIMENTAL_OPENAI_BASE_LLM_HTTP_HANDLER'] = "True"
-        
-        # Create async HTTP client with Puter handler
-        kwargs['api_key'] = "none"
-        
+
         # Make the async request through LiteLLM
-        return await litellm.acompletion(
-            client=PuterAsyncHTTPHandler(api_key=api_key),
+        return dict(
+            client=kwargs['client'](api_key=api_key),
             api_key=api_key,
             base_url='https://api.puter.com/drivers/call',
             extra_headers={
@@ -337,9 +284,27 @@ class PuterLLM(CustomLLM):
                 "Authorization": "Bearer " + api_key
             },
             model=kwargs['model'],
-            stream=False,
+            stream=kwargs.get('stream', False),
             messages=kwargs['messages']
         )
+
+
+    def completion(self, *args, **kwargs) -> ModelResponse:
+        """
+        Handle synchronous completion requests.
+        """
+        kwargs['client'] = PuterHTTPHandler
+        new_kwargs = self.puter_completion_args(*args, **kwargs)
+        return litellm.completion(**new_kwargs)
+
+
+    async def acompletion(self, *args, **kwargs) -> ModelResponse:
+        """
+        Handle asynchronous completion requests.
+        """
+        kwargs['client'] = PuterAsyncHTTPHandler
+        kwargs = self.puter_completion_args(*args, **kwargs)
+        return await litellm.acompletion(**kwargs)
 
 
 # Global instance for easy import
