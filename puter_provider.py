@@ -87,12 +87,134 @@ def filter_model_params(params: dict) -> dict:
     }
 
 
-class PuterAsyncHTTPHandler(AsyncHTTPHandler):
+class PuterHTTPHandlerBase:
+    """
+    Base class for Puter HTTP handlers with common logic.
+    
+    This class contains shared functionality for both sync and async handlers,
+    eliminating code duplication and ensuring consistent behavior.
+    """
+    
+    def __init__(self, api_key: str):
+        """
+        Initialize the base handler.
+        
+        Args:
+            api_key: Puter API key for authentication
+            
+        Raises:
+            ValueError: If API key is invalid or missing
+        """
+        if not api_key or api_key == "None":
+            raise ValueError("Valid Puter API key is required")
+        self.api_key = api_key
+    
+    def _build_puter_payload(
+        self,
+        request_data: dict,
+        stream: bool = False
+    ) -> tuple[str, dict]:
+        """
+        Build the payload for Puter API call.
+        
+        Args:
+            request_data: The original request data
+            stream: Whether streaming is enabled
+            
+        Returns:
+            Tuple of (serialized_data, model)
+        """
+        model = request_data.get('model')
+        
+        # Filter to only valid model parameters
+        filtered_args = filter_model_params(request_data)
+        
+        # Determine the appropriate driver for this model
+        driver = PuterClient().model_to_driver.get(model, "openai-completion")
+        
+        # Construct Puter API payload with filtered arguments
+        payload = {
+            "interface": "puter-chat-completion",
+            "driver": driver,
+            "method": "complete",
+            "args": filtered_args,
+            "stream": stream,
+            "test_mode": False,
+        }
+        
+        return dumps(payload), model, driver
+    
+    def _get_headers(self) -> dict:
+        """
+        Get the required headers for Puter API requests.
+        
+        Returns:
+            Dictionary of HTTP headers
+        """
+        return {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+            "Origin": "https://puter.com",
+            "Referer": "https://puter.com/",
+        }
+    
+    def _handle_puter_response(
+        self,
+        response_json: dict,
+        model: str,
+        driver: str,
+        puter_response: Any
+    ) -> Any:
+        """
+        Handle and transform Puter API response.
+        
+        Args:
+            response_json: Parsed JSON response from Puter
+            model: Model name used
+            driver: Driver name used
+            puter_response: The original HTTP response object
+            
+        Returns:
+            Transformed response
+        """
+        # Check if Puter returned an error
+        if not response_json.get('success', True):
+            # Return only the error content for LiteLLM to parse
+            error_content = response_json.get('error', {})
+            puter_response._content = bytes(dumps(error_content).encode())
+            # Set appropriate status code if available
+            if 'status' in error_content:
+                puter_response.status_code = error_content['status']
+            return puter_response
+        
+        # Transform successful response based on driver type
+        if driver == 'claude':
+            # Claude returns response in a different format
+            puter_response._content = bytes(
+                dumps(response_json['result']['message']).encode()
+            )
+        else:
+            # Standard OpenAI-compatible format
+            result = response_json['result']
+            usage = result.pop('usage', {})
+            
+            transformed_response = {
+                'choices': [result],
+                'model': model,
+                'usage': usage
+            }
+            puter_response._content = bytes(dumps(transformed_response).encode())
+        
+        return puter_response
+
+
+class PuterAsyncHTTPHandler(AsyncHTTPHandler, PuterHTTPHandlerBase):
     """
     Async HTTP handler for Puter API requests.
     
     This handler intercepts LiteLLM's HTTP calls and redirects them to Puter's
     unified AI API endpoint, handling authentication and request transformation.
+    Supports both streaming and non-streaming responses.
     """
     
     def __init__(self, api_key: str, *args, **kwargs):
@@ -103,11 +225,8 @@ class PuterAsyncHTTPHandler(AsyncHTTPHandler):
             api_key: Puter API key for authentication
             *args, **kwargs: Additional arguments passed to parent class
         """
-        if not api_key or api_key == "None":
-            raise ValueError("Valid Puter API key is required")
-            
-        self.api_key = api_key
-        super().__init__(*args, **kwargs)
+        PuterHTTPHandlerBase.__init__(self, api_key)
+        AsyncHTTPHandler.__init__(self, *args, **kwargs)
 
     async def post(
         self,
@@ -127,41 +246,19 @@ class PuterAsyncHTTPHandler(AsyncHTTPHandler):
         
         Transforms standard LLM API requests into Puter's driver-based format.
         Filters parameters to only include valid model parameters.
+        Supports streaming responses from Puter.
         """
         # Redirect to Puter's unified endpoint
         url = 'https://api.puter.com/drivers/call'
         
         # Parse request data
         request_data = loads(data) if isinstance(data, (str, bytes)) else (json or {})
-        model = request_data.get('model')
-
-        # Filter to only valid model parameters
-        filtered_args = filter_model_params(request_data)
-
-        # Determine the appropriate driver for this model
-        driver = PuterClient().model_to_driver.get(model, "openai-completion")
         
-        # Construct Puter API payload with filtered arguments
-        payload = {
-            "interface": "puter-chat-completion",
-            "driver": driver,
-            "method": "complete",
-            "args": filtered_args,
-            "stream": stream,
-            "test_mode": False,
-        }
+        # Build Puter payload using base class method
+        data, model, driver = self._build_puter_payload(request_data, stream)
         
-        # Serialize payload
-        data = dumps(payload)
-        
-        # Set required headers for Puter API
-        # Note: Origin header is CRITICAL for Puter authentication
-        headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json",
-            "Origin": "https://puter.com",
-            "Referer": "https://puter.com/",
-        }
+        # Get headers using base class method
+        headers = self._get_headers()
         
         # Make the actual request
         puter_response = await super().post(
@@ -177,50 +274,25 @@ class PuterAsyncHTTPHandler(AsyncHTTPHandler):
             content=content,
         )
         
-        # Handle streaming responses
+        # For streaming, Puter returns NDJSON format directly
+        # No transformation needed - return as-is
         if stream:
             return puter_response
             
-        # Parse Puter's response
+        # Parse Puter's response for non-streaming
         response_json = puter_response.json()
         
-        # Check if Puter returned an error
-        if not response_json.get('success', True):
-            # Return only the error content for LiteLLM to parse
-            error_content = response_json.get('error', {})
-            puter_response._content = bytes(dumps(error_content).encode())
-            # Set appropriate status code if available
-            if 'status' in error_content:
-                puter_response.status_code = error_content['status']
-            return puter_response
-        
-        # Transform successful response based on driver type
-        if driver == 'claude':
-            # Claude returns response in a different format
-            puter_response._content = bytes(
-                dumps(response_json['result']['message']).encode()
-            )
-        else:
-            # Standard OpenAI-compatible format
-            result = response_json['result']
-            usage = result.pop('usage', {})
-            
-            transformed_response = {
-                'choices': [result],
-                'model': model,
-                'usage': usage
-            }
-            puter_response._content = bytes(dumps(transformed_response).encode())
-            
-        return puter_response
+        # Handle response using base class method
+        return self._handle_puter_response(response_json, model, driver, puter_response)
 
 
-class PuterHTTPHandler(HTTPHandler):
+class PuterHTTPHandler(HTTPHandler, PuterHTTPHandlerBase):
     """
     Synchronous HTTP handler for Puter API requests.
     
     This handler intercepts LiteLLM's HTTP calls and redirects them to Puter's
     unified AI API endpoint, handling authentication and request transformation.
+    Supports both streaming and non-streaming responses.
     """
     
     def __init__(self, api_key: str, *args, **kwargs):
@@ -231,11 +303,8 @@ class PuterHTTPHandler(HTTPHandler):
             api_key: Puter API key for authentication
             *args, **kwargs: Additional arguments passed to parent class
         """
-        if not api_key or api_key == "None":
-            raise ValueError("Valid Puter API key is required")
-            
-        self.api_key = api_key
-        super().__init__(*args, **kwargs)
+        PuterHTTPHandlerBase.__init__(self, api_key)
+        HTTPHandler.__init__(self, *args, **kwargs)
 
     def post(
         self,
@@ -255,41 +324,19 @@ class PuterHTTPHandler(HTTPHandler):
         
         Transforms standard LLM API requests into Puter's driver-based format.
         Filters parameters to only include valid model parameters.
+        Supports streaming responses from Puter.
         """
         # Redirect to Puter's unified endpoint
         url = 'https://api.puter.com/drivers/call'
         
         # Parse request data
         request_data = loads(data) if isinstance(data, (str, bytes)) else (json or data or {})
-        model = request_data.get('model')
         
-        # Filter to only valid model parameters
-        filtered_args = filter_model_params(request_data)
+        # Build Puter payload using base class method
+        data, model, driver = self._build_puter_payload(request_data, stream)
         
-        # Determine the appropriate driver for this model
-        driver = PuterClient().model_to_driver.get(model, "openai-completion")
-        
-        # Construct Puter API payload with filtered arguments
-        payload = {
-            "interface": "puter-chat-completion",
-            "driver": driver,
-            "method": "complete",
-            "args": filtered_args,
-            "stream": stream,
-            "test_mode": False,
-        }
-        
-        # Serialize payload
-        data = dumps(payload)
-        
-        # Set required headers for Puter API
-        # Note: Origin header is CRITICAL for Puter authentication
-        headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json",
-            "Origin": "https://puter.com",
-            "Referer": "https://puter.com/",
-        }
+        # Get headers using base class method
+        headers = self._get_headers()
         
         # Make the actual request
         puter_response = super().post(
@@ -305,42 +352,16 @@ class PuterHTTPHandler(HTTPHandler):
             logging_obj
         )
         
-        # Handle streaming responses
+        # For streaming, Puter returns NDJSON format directly
+        # No transformation needed - return as-is
         if stream:
             return puter_response
             
-        # Parse Puter's response
+        # Parse Puter's response for non-streaming
         response_json = puter_response.json()
         
-        # Check if Puter returned an error
-        if not response_json.get('success', True):
-            # Return only the error content for LiteLLM to parse
-            error_content = response_json.get('error', {})
-            puter_response._content = bytes(dumps(error_content).encode())
-            # Set appropriate status code if available
-            if 'status' in error_content:
-                puter_response.status_code = error_content['status']
-            return puter_response
-        
-        # Transform successful response based on driver type
-        if driver == 'claude':
-            # Claude returns response in a different format
-            puter_response._content = bytes(
-                dumps(response_json['result']['message']).encode()
-            )
-        else:
-            # Standard OpenAI-compatible format
-            result = response_json['result']
-            usage = result.pop('usage', {})
-            
-            transformed_response = {
-                'choices': [result],
-                'model': model,
-                'usage': usage
-            }
-            puter_response._content = bytes(dumps(transformed_response).encode())
-            
-        return puter_response
+        # Handle response using base class method
+        return self._handle_puter_response(response_json, model, driver, puter_response)
 
 
 class PuterLLM(CustomLLM):
