@@ -51,7 +51,7 @@ class PuterModelsCache:
     
     # Cache settings
     CACHE_TTL = timedelta(hours=1)
-    API_URL = "https://puter.com/puterai/chat/models"
+    API_URL = "https://api.puter.com/puterai/chat/models/details"
     
     # Fallback heuristics for common model patterns
     DRIVER_HEURISTICS = {
@@ -165,11 +165,7 @@ class PuterModelsCache:
         if isinstance(model, dict):
             model_id = model.get('id') or model.get('name') or model.get('model', '')
             
-            # First, check if model has explicit 'driver' field
-            if 'driver' in model and model['driver']:
-                return model['driver']
-            
-            # Second, check if model has 'provider' field
+            # First priority: check if model has 'provider' field (Puter API standard)
             if 'provider' in model and model['provider']:
                 provider = str(model['provider']).lower()
                 
@@ -191,6 +187,13 @@ class PuterModelsCache:
                 
                 if provider in provider_to_driver:
                     return provider_to_driver[provider]
+                
+                # If provider not in map, return it as-is
+                return provider
+            
+            # Second priority: check if model has explicit 'driver' field
+            if 'driver' in model and model['driver']:
+                return model['driver']
             
         elif isinstance(model, str):
             model_id = model
