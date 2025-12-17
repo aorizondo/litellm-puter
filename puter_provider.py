@@ -74,17 +74,58 @@ def filter_model_params(params: dict) -> dict:
     
     Removes LiteLLM internal parameters that shouldn't be passed to the provider.
     
+    IMPORTANT: max_tokens handling
+    ------------------------------
+    Puter automatically calculates max_tokens based on:
+    - Model's max_tokens limit (from OpenRouter API)
+    - User's available credits
+    - Approximate token count of the prompt
+    
+    See: puter/src/backend/src/services/ai/chat/AIChatService.ts:359-361
+    
+    Therefore, we should NOT send max_tokens unless explicitly specified by the user.
+    If max_tokens is sent and exceeds the model's limit, OpenRouter will return:
+    "Error 400: Invalid max_tokens value, the valid range is [1, X]"
+    
     Args:
         params: Original parameters dictionary
         
     Returns:
         Filtered parameters dictionary with only valid model parameters
     """
-    return {
+    filtered = {
         key: value 
         for key, value in params.items() 
         if key in VALID_MODEL_PARAMS and value is not None
     }
+    
+    # Special handling for max_tokens:
+    # IMPORTANT: Puter calculates max_tokens automatically on the server side.
+    # Sending max_tokens can cause errors if it exceeds the model's limit.
+    # 
+    # Best practice: DON'T send max_tokens unless absolutely necessary.
+    # Let Puter handle it automatically based on model limits and user credits.
+    #
+    # We remove max_tokens in these cases:
+    # 1. It's None
+    # 2. It's extremely high (>100,000) - likely a default
+    # 3. It's in the "dangerous zone" (>8000) where it might exceed model limits
+    #
+    # We keep max_tokens only if:
+    # - User explicitly sets a reasonable value (1-8000)
+    # - This gives user control while avoiding most errors
+    if 'max_tokens' in filtered:
+        max_tokens_value = filtered['max_tokens']
+        
+        if max_tokens_value is None:
+            # None means not set, remove it
+            del filtered['max_tokens']
+        elif max_tokens_value > 8000:
+            # Values >8000 are risky for many OpenRouter models
+            # Let Puter calculate the safe value
+            del filtered['max_tokens']
+    
+    return filtered
 
 
 class PuterHTTPHandlerBase:
