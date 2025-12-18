@@ -43,6 +43,7 @@ VALID_MODEL_PARAMS = {
     'logprobs',
     'top_logprobs',
     'logit_bias',
+    'optional_params',
 }
 
 # LiteLLM internal parameters that should NOT be passed to the provider
@@ -463,7 +464,9 @@ class PuterLLM(CustomLLM):
 
         # Filter kwargs to only include valid model parameters
         filtered_kwargs = filter_model_params(kwargs)
-        
+        if 'optional_params' in kwargs:
+            filtered_kwargs.update(**kwargs['optional_params'])
+            filtered_kwargs['optional_params'] = kwargs['optional_params']
         # Build completion arguments with only necessary parameters
         client_args = {'api_key': api_key}
         if http_client:
@@ -501,8 +504,8 @@ class PuterLLM(CustomLLM):
         Handle asynchronous completion requests.
         """
         kwargs['client'] = PuterAsyncHTTPHandler
-        kwargs = self.puter_completion_args(*args, **kwargs)
-        return await litellm.acompletion(**kwargs)
+        new_kwargs = self.puter_completion_args(*args, **kwargs)
+        return await litellm.acompletion(**new_kwargs)
 
 
 # Global instance for easy import

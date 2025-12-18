@@ -12,6 +12,7 @@ general_settings:
 litellm_settings:
   custom_provider_map:
     - {"provider": "puter", "custom_handler": custom_handler.puter_llm}
+  modify_params: True
 
 model_list:
 
@@ -22,3 +23,15 @@ model_list:
   - model_name: "*"
     litellm_params:
       model: "*"
+
+  - model_name: "claude*"
+    litellm_params:
+      model: "puter/anthropic/claude*"
+
+  - model_name: "claude-sonnet-4-5"
+    litellm_params:
+      model: "puter/anthropic/claude-sonnet-4-5-20250929"
+
+  - model_name: "claude-3-5-sonnet-20241022"
+    litellm_params:
+      model: "puter/anthropic/claude-3-5-sonnet-20241022"
