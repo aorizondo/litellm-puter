@@ -12,7 +12,6 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import asyncio
 from dotenv import load_dotenv
 import litellm
-from puter_provider import setup_puter_provider
 
 # Load environment variables
 load_dotenv()
@@ -25,12 +24,13 @@ if not os.getenv("PUTER_API_KEY"):
     exit(1)
 
 # Register Puter as a custom provider
-setup_puter_provider()
 
 
 async def make_completion(prompt: str, model: str):
     """Make an async completion request."""
     response = await litellm.acompletion(
+        base_url="http://localhost:4000",
+        api_key='sk-1234',
         model=model,
         messages=[{"role": "user", "content": prompt}],
     )
@@ -43,9 +43,9 @@ async def main():
     
     # Define multiple requests
     requests = [
-        ("What is 2+2?", "puter/anthropic/claude-sonnet-4-5-20250929"),
-        ("Name a color.", "puter/anthropic/claude-sonnet-4-5-20250929"),
-        ("What's the capital of France?", "puter/anthropic/claude-sonnet-4-5-20250929"),
+        ("What is 2+2?", "litellm_proxy/claude-sonnet-4-5-20250929"),
+        # ("Name a color.", "puter/anthropic/claude-sonnet-4-5-20250929"),
+        # ("What's the capital of France?", "puter/anthropic/claude-sonnet-4-5-20250929"),
     ]
     
     # Execute all requests concurrently

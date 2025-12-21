@@ -33,6 +33,10 @@ python-dotenv = "^1.0.1"
 pyyaml = "^6.0.2"
 pydantic = "^2.10.3"
 click = "^8.1.8"
+patchright = "^1.56.0"
+quart = "^0.20.0"
+argparse = "^1.4.0"
+camoufox = {extras = ["geoip"], version = "^0.4.11"}
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.4"
@@ -43,9 +47,7 @@ ruff = "^0.8.4"
 mypy = "^1.14.0"
 types-pyyaml = "^6.0.12"
 
-[tool.poetry.scripts]
-litellm-puter = "litellm_puter.cli:main"
-litellm-puter-gateway = "litellm_puter.gateway:start"
+
 
 [tool.poetry.plugins."litellm.providers"]
 puter = "litellm_puter.provider:puter_llm"

@@ -2,3 +2,8 @@ litellm>=1.80.0
 httpx>=0.28.0
 boto3>=1.42.0
 python-dotenv>=1.0.0
+quart
+asyncio
+argparse
+patchright
+camoufox[geoip]
