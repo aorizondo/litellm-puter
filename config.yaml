@@ -11,7 +11,7 @@ general_settings:
 
 litellm_settings:
   custom_provider_map:
-    - {"provider": "puter", "custom_handler": custom_handler.puter_llm}
+    - {"provider": "puter", "custom_handler": litellm_puter.puter_llm}
   modify_params: True
 
 model_list:
