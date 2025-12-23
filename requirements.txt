@@ -7,3 +7,4 @@ asyncio
 argparse
 patchright
 camoufox[geoip]
+xvfbwrapper

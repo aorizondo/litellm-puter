@@ -12,6 +12,8 @@ License: MIT
 
 import asyncio
 import os
+import re
+
 import httpx
 import litellm
 from typing import List, Any, Union, Optional
@@ -20,8 +22,11 @@ from litellm import CustomLLM, ModelResponse
 from litellm.llms.custom_httpx.http_handler import HTTPHandler, AsyncHTTPHandler
 from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObject
 from httpx._types import RequestFiles
+from patchright._impl._errors import TargetClosedError
+# from xvfbwrapper import Xvfb
+
 from .models_cache import get_model_driver
-from patchright.async_api import async_playwright
+from patchright.async_api import async_playwright, expect, Request, Response, ProxySettings
 import random
 
 
@@ -141,40 +146,89 @@ class AsyncPuterWebLogin:
         self.browser_args = []
         if useragent:
             self.browser_args.append(f"--user-agent={useragent}")
+        self.stop = False
+        self.token = None
 
-    async def get_temp_token(self, url: str = 'https://puter.com', max_attempts: int = 10) -> str | None:
-        locator = "//*[@id='captcha-widget-turnstile-challenge-modal']"
+    async def get_temp_token(self, url: str = 'https://puter.com', max_attempts: int = 10, proxy: str | None = None) -> str | None:
+        locator_str = "//*[@id='captcha-widget-turnstile-challenge-modal']"
         timeout = 1000 * 60 * 10
         url_with_slash = url + "/" if not url.endswith("/") else url
         async with async_playwright() as playwright:
             browser = await playwright.chromium.launch(
                 channel=self.browser_type,
                 headless=self.headless,
-                args=self.browser_args
+                args=self.browser_args,
             )
-            context = browser.contexts[0] if len(browser.contexts) else await browser.new_context()
-            await context.clear_cookies()
+            if proxy:
+                context = await browser.new_context(proxy={"server": proxy})
+            else:
+                context = browser.contexts[0] if len(browser.contexts) else await browser.new_context()
+
+            # await context.clear_cookies()
             page = context.pages[0] if len(context.pages) else await context.new_page()
-            await page.goto(url_with_slash, timeout=0, wait_until='domcontentloaded')
+
+            try:
+                await page.goto(url_with_slash, timeout=0, wait_until='domcontentloaded')
+            except Exception as e:
+                print(e)
+                return
+            page.on("requestfinished", self.on_requestfinished)
+            locator = page.locator(locator_str)
+            modal = False
+            click = False
+            turnstile_response = False
             for _ in range(max_attempts):
+                if self.stop:
+                    break
                 try:
-                    storage = await page.context.storage_state()
-                    for cookie in storage['cookies']:
-                        if cookie['name'] == 'puter_auth_token':
-                            return cookie['value'], True
-                    await page.wait_for_selector(locator, timeout=timeout)
-                    if await page.input_value("[name=cf-turnstile-response]") == "":
-                        await page.wait_for_timeout(random.randint(2000, 5000))
+                    if not modal:
+                        await locator.wait_for(state="attached", timeout=0)
+                        modal = True
+                        await page.locator("//*[@data-sitekey='0x4AAAAAABvMyOLo9EwjFVzC']").wait_for(state="attached", timeout=100)
+                    await page.wait_for_timeout(random.randint(700, 3000))
+                    if not click:
                         try:
-                            await page.locator("//*[@class='cf-turnstile']").click(timeout=1000)
+                            await locator.click(timeout=500)
                         except:
-                            await page.locator(locator).click(timeout=1000)
-                        await asyncio.sleep(0.5)
+                            pass
+                        try:
+                            await locator.wait_for(state="detached", timeout=500)
+                            click = True
+                        except:
+                            pass
+                    try:
+                        if not turnstile_response:
+                            await expect(page.locator("[name=cf-turnstile-response]")).to_have_value(re.compile(r"."), timeout=500)
+                            turnstile_response = True
+                    except:
+                        pass
+                    for cookie in await context.cookies():
+                        if cookie['name'] == 'puter_auth_token':
+                            return cookie['value']
+                    if self.token:
+                        return self.token
+                except TargetClosedError as e:
+                    return
                 except Exception as e:
+                    print(e)
                     continue
+            while not self.stop:
+                continue
             await browser.close()
         return None
 
+    async def on_requestfinished(self, request: Request):
+        if 'puter.com/signup' in request.url:
+            try:
+                response: Response = await request.response()
+                # await response.finished()
+                print(str(await response.body()))
+                r_json = await response.json()
+                print(r_json)
+                self.token = r_json['token']
+            except:
+                pass
+            self.stop = True
 
 class PuterHTTPHandlerBase:
     """
@@ -359,15 +413,36 @@ class PuterAsyncHTTPHandler(AsyncHTTPHandler, PuterHTTPHandlerBase):
         parsed_response = self._handle_puter_response(puter_response)
         try:
             if "You have reached your AI usage limit for this account" in str(puter_response.json()):
-                solver = AsyncPuterWebLogin(
-                    headless=True,
-                    useragent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
-                )
+                solver = AsyncPuterWebLogin(headless=False, debug=True)
+                result = None
                 for _ in range(5):
-                    result = await solver.get_temp_token(url='https://puter.com/', max_attempts=100)
+                    try:
+                        # with Xvfb(width=800, height=600) as xvfb:
+                        # result = await solver.get_temp_token(max_attempts=100)
+                        if result is None:
+                            proxy_list = await super().get(
+                                url="https://api.proxyscrape.com/v4/free-proxy-list/get?request=get_proxies&ssl=all&proxy_format=protocolipport&format=text&protocol=http&limit=500",
+                            )
+                            proxy_list_json = proxy_list.content.decode().splitlines()
+                            for proxy in proxy_list_json:
+                                solver.browser_args=[f'--proxy-server="{proxy.strip()}"', '--no-sandbox']
+                                result = await solver.get_temp_token(max_attempts=100)
+                            # with open('proxies.txt', 'r') as f:
+                            #     proxies = f.readlines()
+                            # for proxy in proxies:
+                            #     result = await solver.get_temp_token(max_attempts=100, proxy=proxy.strip())
+                                if result:
+                                    break
+                    except TypeError as e:
+                        raise e
+                    except Exception as e:
+                        pass
+
                     if result is None:
                         continue
                     # Handle successful login and update API key if needed
+                    with open('token.txt', 'a') as f:
+                        f.writelines([result, "\n"])
                     self.api_key = os.environ["PUTER_API_KEY"] = os.environ["PUTER_TOKEN"] = result
                     return await self.post(
                         url=url,
@@ -383,6 +458,7 @@ class PuterAsyncHTTPHandler(AsyncHTTPHandler, PuterHTTPHandlerBase):
                     )
         except Exception as e:
             print(e)
+            # raise
 
         # Handle response using base class method
         return parsed_response
