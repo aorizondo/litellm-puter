@@ -251,6 +251,7 @@ class PuterHTTPHandlerBase:
         if not api_key or api_key == "None":
             raise ValueError("Valid Puter API key is required")
         self.api_key = api_key
+        self.token_index = 0
 
     def _build_puter_request(
             self,
@@ -415,34 +416,13 @@ class PuterAsyncHTTPHandler(AsyncHTTPHandler, PuterHTTPHandlerBase):
             if "You have reached your AI usage limit for this account" in str(puter_response.json()):
                 solver = AsyncPuterWebLogin(headless=False, debug=True)
                 result = None
-                for _ in range(5):
-                    try:
-                        # with Xvfb(width=800, height=600) as xvfb:
-                        # result = await solver.get_temp_token(max_attempts=100)
-                        if result is None:
-                            proxy_list = await super().get(
-                                url="https://api.proxyscrape.com/v4/free-proxy-list/get?request=get_proxies&ssl=all&proxy_format=protocolipport&format=text&protocol=http&limit=500",
-                            )
-                            proxy_list_json = proxy_list.content.decode().splitlines()
-                            for proxy in proxy_list_json:
-                                solver.browser_args=[f'--proxy-server="{proxy.strip()}"', '--no-sandbox']
-                                result = await solver.get_temp_token(max_attempts=100)
-                            # with open('proxies.txt', 'r') as f:
-                            #     proxies = f.readlines()
-                            # for proxy in proxies:
-                            #     result = await solver.get_temp_token(max_attempts=100, proxy=proxy.strip())
-                                if result:
-                                    break
-                    except TypeError as e:
-                        raise e
-                    except Exception as e:
-                        pass
-
-                    if result is None:
+                with open('token.txt', 'r') as f:
+                    tokens = f.readlines()
+                for token in range(len(tokens)):
+                    result = tokens[token].strip()
+                    if token < self.token_index or result == self.api_key or not result:
                         continue
-                    # Handle successful login and update API key if needed
-                    with open('token.txt', 'a') as f:
-                        f.writelines([result, "\n"])
+                    self.token_index = token
                     self.api_key = os.environ["PUTER_API_KEY"] = os.environ["PUTER_TOKEN"] = result
                     return await self.post(
                         url=url,
@@ -456,6 +436,8 @@ class PuterAsyncHTTPHandler(AsyncHTTPHandler, PuterHTTPHandlerBase):
                         files=files,
                         content=content,
                     )
+                else:
+                    self.token_index = 0
         except Exception as e:
             print(e)
             # raise
