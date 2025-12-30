@@ -414,12 +414,21 @@ class PuterAsyncHTTPHandler(AsyncHTTPHandler, PuterHTTPHandlerBase):
         parsed_response = self._handle_puter_response(puter_response)
         try:
             if "You have reached your AI usage limit for this account" in str(puter_response.json()):
-                solver = AsyncPuterWebLogin(headless=False, debug=True)
-                result = None
                 with open('token.txt', 'r') as f:
                     tokens = f.readlines()
                 for token in range(len(tokens)):
                     result = tokens[token].strip()
+                    usage = await super().get("https://api.puter.com/metering/usage",
+                        headers={
+                            "accept": "*/*",
+                            "accept-language": "es-ES,es;q=0.9,ru;q=0.8,en;q=0.7",
+                            "authorization": "Bearer " + result,
+                            "referrer": "https://puter.com/",
+                        },
+                    )
+                    usage = usage.json()
+                    remaining = usage['allowanceInfo']['remaining']
+                    print(usage['allowanceInfo']['remaining'])
                     if token < self.token_index or result == self.api_key or not result:
                         continue
                     self.token_index = token
