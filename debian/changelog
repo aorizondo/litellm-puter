@@ -1,0 +1,12 @@
+litellm-puter (2.2.0-1) unstable; urgency=medium
+
+  * Initial Debian package release
+  * Custom LiteLLM provider for Puter AI
+  * Support for 488+ AI models
+  * Integrated scraper for token generation
+  * PostgreSQL with pgvector support
+  * Redis caching
+  * Systemd service integration
+  * Docker and Docker Compose support
+
+ -- aorizondo <aorizondo@users.noreply.github.com>  Thu, 23 Jan 2025 00:00:00 +0000

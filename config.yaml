@@ -1,39 +1,212 @@
+# ============================================================================
 # LiteLLM Configuration for Puter AI Gateway
-# Format: model: puter/<provider>/<model-id>
+# ============================================================================
+# 
+# Este archivo configura LiteLLM para usar Puter como custom provider,
+# permitiendo acceso a 488+ modelos de IA a través de una API unificada.
 #
-# Priority providers: OpenAI, Anthropic, DeepSeek, xAI
+# Formato de modelos: puter/<provider>/<model-id>
+# Ejemplo: puter/openai/gpt-4o, puter/anthropic/claude-3-5-sonnet-20241022
 #
-# To use a model:
-#   litellm.completion(model='puter/openai/gpt-4o', messages=[...])
-#
-general_settings:
-  master_key: "sk-1234"
+# Documentación: https://github.com/aorizondo/litellm-puter
+# ============================================================================
 
+# ============================================================================
+# Configuración General
+# ============================================================================
+general_settings:
+  # Master key para autenticación del proxy
+  # Cambiar en producción o usar variable de entorno
+  master_key: "${LITELLM_MASTER_KEY:sk-1234}"
+  
+  # Base de datos para logging y cache
+  # Usar PostgreSQL con pgvector para mejor rendimiento
+  database_url: "${DATABASE_URL:postgresql://litellm:password@localhost:5432/litellm_db}"
+  
+  # Configuración de logging
+  success_callback: ["langfuse"]  # Opcional: integración con Langfuse
+  failure_callback: ["langfuse"]
+  
+  # Cache de respuestas (opcional)
+  cache: true
+  cache_params:
+    type: "redis"  # o "s3", "local"
+    host: "${REDIS_HOST:localhost}"
+    port: "${REDIS_PORT:6379}"
+    
+  # Límites de rate
+  max_parallel_requests: 100
+  max_request_size_mb: 10
+
+# ============================================================================
+# Configuración de LiteLLM
+# ============================================================================
 litellm_settings:
+  # Registrar custom provider de Puter
   custom_provider_map:
-    - {"provider": "puter", "custom_handler": litellm_puter.provider.puter_llm}
+    - provider: "puter"
+      custom_handler: "litellm_puter.provider.puter_llm"
+  
+  # Modificar y filtrar parámetros automáticamente
   modify_params: true
   drop_params: true
+  
+  # Timeouts
+  request_timeout: 600  # 10 minutos para requests largos
+  
+  # Retry logic
+  num_retries: 3
+  retry_after: 5
+  
+  # Telemetría (opcional)
+  telemetry: false
+
+# ============================================================================
+# Lista de Modelos
+# ============================================================================
+# 
+# Configuración de modelos disponibles a través del proxy.
+# Cada entrada define un alias y sus parámetros de conexión.
+#
+# Wildcards (*) permiten pasar cualquier modelo directamente a Puter.
+# ============================================================================
+
 model_list:
-
-  # ======================================================================
-  # OpenAI Models (GPT) - 23 models
-  # ======================================================================
-
+  # --------------------------------------------------------------------------
+  # Wildcard: Permite usar cualquier modelo de Puter directamente
+  # --------------------------------------------------------------------------
   - model_name: "*"
     litellm_params:
-      model: "*"
-
-  - model_name: "claude*"
-    litellm_params:
-      model: "puter/anthropic/claude*"
+      model: "puter/*"
       api_key: "os.environ/PUTER_API_KEY"
 
+  # --------------------------------------------------------------------------
+  # Anthropic Claude Models
+  # --------------------------------------------------------------------------
+  
+  # Claude Sonnet 4.5 (Latest)
   - model_name: "claude-sonnet-4-5"
     litellm_params:
       model: "puter/anthropic/claude-sonnet-4-5-20250929"
       api_key: "os.environ/PUTER_API_KEY"
-
-  - model_name: "claude-3-5-sonnet-20241022"
+      
+  # Claude 3.5 Sonnet
+  - model_name: "claude-3-5-sonnet"
     litellm_params:
       model: "puter/anthropic/claude-3-5-sonnet-20241022"
+      api_key: "os.environ/PUTER_API_KEY"
+      
+  # Claude 3 Opus
+  - model_name: "claude-3-opus"
+    litellm_params:
+      model: "puter/anthropic/claude-3-opus-20240229"
+      api_key: "os.environ/PUTER_API_KEY"
+
+  # --------------------------------------------------------------------------
+  # OpenAI GPT Models
+  # --------------------------------------------------------------------------
+  
+  # GPT-4o (Latest)
+  - model_name: "gpt-4o"
+    litellm_params:
+      model: "puter/openai/gpt-4o"
+      api_key: "os.environ/PUTER_API_KEY"
+      
+  # GPT-4o Mini
+  - model_name: "gpt-4o-mini"
+    litellm_params:
+      model: "puter/openai/gpt-4o-mini"
+      api_key: "os.environ/PUTER_API_KEY"
+      
+  # GPT-4 Turbo
+  - model_name: "gpt-4-turbo"
+    litellm_params:
+      model: "puter/openai/gpt-4-turbo"
+      api_key: "os.environ/PUTER_API_KEY"
+
+  # --------------------------------------------------------------------------
+  # DeepSeek Models
+  # --------------------------------------------------------------------------
+  
+  # DeepSeek Chat
+  - model_name: "deepseek-chat"
+    litellm_params:
+      model: "puter/deepseek/deepseek-chat"
+      api_key: "os.environ/PUTER_API_KEY"
+      
+  # DeepSeek Coder
+  - model_name: "deepseek-coder"
+    litellm_params:
+      model: "puter/deepseek/deepseek-coder"
+      api_key: "os.environ/PUTER_API_KEY"
+
+  # --------------------------------------------------------------------------
+  # xAI Grok Models
+  # --------------------------------------------------------------------------
+  
+  # Grok 2
+  - model_name: "grok-2"
+    litellm_params:
+      model: "puter/xai/grok-2-1212"
+      api_key: "os.environ/PUTER_API_KEY"
+
+  # --------------------------------------------------------------------------
+  # Google Gemini Models
+  # --------------------------------------------------------------------------
+  
+  # Gemini 2.0 Flash
+  - model_name: "gemini-2-flash"
+    litellm_params:
+      model: "puter/google/gemini-2.0-flash-exp"
+      api_key: "os.environ/PUTER_API_KEY"
+      
+  # Gemini 1.5 Pro
+  - model_name: "gemini-1.5-pro"
+    litellm_params:
+      model: "puter/google/gemini-1.5-pro"
+      api_key: "os.environ/PUTER_API_KEY"
+
+  # --------------------------------------------------------------------------
+  # Meta Llama Models
+  # --------------------------------------------------------------------------
+  
+  # Llama 3.3 70B
+  - model_name: "llama-3.3-70b"
+    litellm_params:
+      model: "puter/meta-llama/llama-3.3-70b-instruct"
+      api_key: "os.environ/PUTER_API_KEY"
+
+# ============================================================================
+# Router Settings (Opcional)
+# ============================================================================
+# 
+# Configuración para load balancing y fallbacks entre modelos
+# ============================================================================
+
+router_settings:
+  # Estrategia de routing
+  routing_strategy: "least-busy"  # o "simple-shuffle", "latency-based"
+  
+  # Fallback automático
+  enable_fallbacks: true
+  
+  # Cooldown después de fallos
+  cooldown_time: 60  # segundos
+
+# ============================================================================
+# Environment Variables
+# ============================================================================
+#
+# Variables de entorno requeridas:
+#
+# PUTER_API_KEY          - API key de Puter (REQUERIDO)
+# DATABASE_URL           - URL de PostgreSQL (opcional)
+# LITELLM_MASTER_KEY     - Master key del proxy (opcional)
+# REDIS_HOST             - Host de Redis para cache (opcional)
+# REDIS_PORT             - Puerto de Redis (opcional)
+#
+# Ejemplo de uso:
+#   export PUTER_API_KEY=your_key_here
+#   litellm --config config.yaml --port 4000
+#
+# ============================================================================

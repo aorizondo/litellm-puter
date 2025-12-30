@@ -1,0 +1,44 @@
+Source: litellm-puter
+Section: python
+Priority: optional
+Maintainer: aorizondo <aorizondo@users.noreply.github.com>
+Build-Depends: debhelper (>= 11),
+               dh-python,
+               python3-all (>= 3.10),
+               python3-setuptools,
+               python3-pip
+Standards-Version: 4.5.1
+Homepage: https://github.com/aorizondo/litellm-puter
+Vcs-Git: https://github.com/aorizondo/litellm-puter.git
+Vcs-Browser: https://github.com/aorizondo/litellm-puter
+
+Package: litellm-puter
+Architecture: all
+Depends: ${python3:Depends},
+         ${misc:Depends},
+         python3 (>= 3.10),
+         python3-pip,
+         python3-venv,
+         postgresql-15 | postgresql-client,
+         google-chrome-stable | chromium,
+         xvfb,
+         python3-xvfbwrapper,
+         curl,
+         netcat-openbsd
+Recommends: redis-server,
+            postgresql-15-pgvector
+Suggests: nginx,
+          certbot
+Description: LiteLLM custom provider for Puter AI
+ LiteLLM-Puter is a custom provider that enables access to 488+ AI models
+ through Puter.com's unified API. It provides:
+ .
+  * Integration with LiteLLM proxy server
+  * Support for OpenAI, Anthropic, DeepSeek, xAI, Google, Meta and more
+  * Automatic token scraping for testing
+  * PostgreSQL database with pgvector support
+  * Redis caching for improved performance
+  * Systemd service for easy deployment
+ .
+ This package installs the litellm_puter Python module and configures
+ a systemd service to run the LiteLLM proxy with Puter integration.

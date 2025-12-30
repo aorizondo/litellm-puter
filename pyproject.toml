@@ -20,7 +20,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 packages = [
-    { include = "litellm_puter", from = "src" }
+    { include = "litellm_puter" }
 ]
 
 [tool.poetry.dependencies]
@@ -37,6 +37,8 @@ patchright = "^1.56.0"
 quart = "^0.20.0"
 argparse = "^1.4.0"
 camoufox = {extras = ["geoip"], version = "^0.4.11"}
+xvfbwrapper = "^0.2.9"
+psycopg2-binary = "^2.9.9"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.4"
