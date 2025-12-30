@@ -3,18 +3,21 @@ import asyncio
 from xvfbwrapper import Xvfb
 
 async def login(url: str = 'https://puter.com',):
-    xvfb = Xvfb()
-    # xvfb.start()
-    try:
-        # launch stuff inside virtual display here
-        solver = AsyncPuterWebLogin(headless=False, debug=True)
-        token = await solver.get_temp_token(proxy="http://10.14.0.13:3128")
-    finally:
-        # xvfb.stop()
-        pass
+    with Xvfb(width=1920, height=1080) as xvfb:
+        try:
+            # launch stuff inside virtual display here
+            solver = AsyncPuterWebLogin(headless=False, debug=True)
+            token = await solver.get_temp_token(proxy="http://10.14.0.13:3128")
+        finally:
+            # xvfb.stop()
+            pass
     print(token)
     with open('token.txt', 'a') as f:
         if token:
             f.writelines([token, "\n"])
+async def main():
+    for x in range(10):
+        await login()
+        await asyncio.sleep(10)
 if __name__ == '__main__':
-    asyncio.run(login(), debug=False)
+    asyncio.run(main(), debug=True)
