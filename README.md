@@ -11,9 +11,10 @@ Custom provider para LiteLLM que permite acceder a 488+ modelos de IA a través 
 - **488+ Modelos de IA**: Acceso a modelos de OpenAI, Anthropic, DeepSeek, xAI, Google, Meta y más
 - **API Unificada**: Interfaz consistente para todos los proveedores
 - **Custom Provider**: Integración nativa con LiteLLM
+- **Soporte de Proxy**: HTTP, HTTPS y SOCKS5 proxies para todas las peticiones
+- **Async/Sync**: Soporte completo para operaciones síncronas y asíncronas
 - **Docker Ready**: Despliegue fácil con Docker Compose
-- **PostgreSQL**: Base de datos integrada con pgvector
-- **Scraper Automático**: Obtención programática de tokens temporales para pruebas
+- **Scraper Automático**: Obtención programática de tokens temporales para pruebas (opcional)
 - **Proxy Gateway**: Servidor proxy completo con autenticación
 
 ## 📋 Requisitos
@@ -78,6 +79,13 @@ PUTER_API_KEY=your_puter_api_key_here
 
 # LiteLLM (opcional)
 LITELLM_MASTER_KEY=sk-1234  # Para autenticación del proxy
+
+# Proxy (opcional) - soporta HTTP, HTTPS y SOCKS5
+SOCKS5_PROXY=socks5://host:port
+# O alternativamente:
+HTTPS_PROXY=https://host:port
+HTTP_PROXY=http://host:port
+ALL_PROXY=socks5://host:port
 ```
 
 ### Obtener API Key de Puter
@@ -129,15 +137,11 @@ response = litellm.completion(
 )
 print(response.choices[0].message.content)
 
-# Otros ejemplos
+# Con proxy (opcional)
+os.environ["SOCKS5_PROXY"] = "socks5://localhost:1080"
 response = litellm.completion(
     model="puter/anthropic/claude-3-5-sonnet-20241022",
     messages=[{"role": "user", "content": "Explain quantum computing"}]
-)
-
-response = litellm.completion(
-    model="puter/deepseek/deepseek-chat",
-    messages=[{"role": "user", "content": "Write a Python function"}]
 )
 ```
 
@@ -187,6 +191,53 @@ python -m litellm_puter.scraper
 ```
 
 **Nota**: El scraper requiere Chrome instalado.
+
+## 🌐 Soporte de Proxy
+
+El módulo soporta HTTP, HTTPS y SOCKS5 proxies para todas las peticiones a la API de Puter.
+
+### Configuración
+
+```bash
+# SOCKS5 (recomendado para mayor privacidad)
+export SOCKS5_PROXY=socks5://localhost:1080
+
+# HTTPS
+export HTTPS_PROXY=https://proxy.example.com:8080
+
+# HTTP
+export HTTP_PROXY=http://proxy.example.com:8080
+
+# ALL_PROXY (funciona para todos los protocolos)
+export ALL_PROXY=socks5://localhost:1080
+```
+
+### Uso con Proxy
+
+```python
+import os
+import litellm
+from litellm_puter import setup_puter_provider
+
+# Configurar API key y proxy
+os.environ["PUTER_API_KEY"] = "your_api_key"
+os.environ["SOCKS5_PROXY"] = "socks5://localhost:1080"
+
+setup_puter_provider()
+
+# Las peticiones ahora usarán el proxy automáticamente
+response = litellm.completion(
+    model="puter/openai/gpt-4o",
+    messages=[{"role": "user", "content": "Hello!"}]
+)
+```
+
+### Notas sobre Proxy
+
+- **SOCKS5**: Recomendado para mayor privacidad. Requiere `httpx[socks]` (ya incluido)
+- **SSL Verification**: Deshabilitada automáticamente para proxies SOCKS5 para evitar problemas de conexión
+- **Prioridad**: SOCKS5_PROXY > HTTPS_PROXY > HTTP_PROXY > ALL_PROXY
+- **Async**: El soporte de proxy funciona tanto en modo sync como async
 
 ## 🏗️ Arquitectura
 

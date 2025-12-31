@@ -261,6 +261,7 @@ class PuterAsyncHTTPHandler(AsyncHTTPHandler, PuterHTTPHandlerBase):
     This handler intercepts LiteLLM's HTTP calls and redirects them to Puter's
     unified AI API endpoint, handling authentication and request transformation.
     Supports both streaming and non-streaming responses.
+    Supports proxy configuration via custom_httpx_client.
     """
 
     def __init__(self, api_key: str, *args, custom_httpx_client=None, **kwargs):
@@ -363,6 +364,7 @@ class PuterHTTPHandler(HTTPHandler, PuterHTTPHandlerBase):
     This handler intercepts LiteLLM's HTTP calls and redirects them to Puter's
     unified AI API endpoint, handling authentication and request transformation.
     Supports both streaming and non-streaming responses.
+    Supports proxy configuration via custom_httpx_client.
     """
 
     def __init__(self, api_key: str, *args, custom_httpx_client=None, **kwargs):
@@ -427,16 +429,82 @@ class PuterLLM(CustomLLM):
     
     This class integrates with LiteLLM's custom provider system, allowing
     Puter to be used as a first-class provider alongside OpenAI, Anthropic, etc.
+    Supports HTTP/HTTPS/SOCKS5 proxies via environment variables.
     """
 
-    def puter_completion_args(self, *args, **kwargs):
+    def _get_proxy_config(self) -> Optional[str]:
         """
-        Transforms model names and filters parameters for Puter API.
+        Get proxy configuration from environment variables.
         
-        Only passes valid model parameters to avoid errors from LiteLLM internal params.
+        Checks in order: SOCKS5_PROXY, HTTPS_PROXY, HTTP_PROXY, ALL_PROXY
         
-        Note: LiteLLM automatically strips the 'puter/' prefix before calling this method,
-        so we receive the model in format '<provider>/<model>' (e.g., 'openai/gpt-4o')
+        Returns:
+            Proxy URL string or None if no proxy configured
+        """
+        import os
+        return (
+            os.getenv("SOCKS5_PROXY") or 
+            os.getenv("HTTPS_PROXY") or 
+            os.getenv("HTTP_PROXY") or 
+            os.getenv("ALL_PROXY")
+        )
+
+    def _create_http_client(self) -> Optional[httpx.Client]:
+        """
+        Create httpx.Client with proxy support if configured.
+        
+        Supports HTTP, HTTPS, and SOCKS5 proxies.
+        For SOCKS5 proxies, SSL verification is disabled to avoid connection issues.
+        
+        Returns:
+            httpx.Client instance with proxy or None if no proxy configured
+        """
+        proxy_url = self._get_proxy_config()
+        if not proxy_url:
+            return None
+        
+        # Configure client based on proxy type
+        client_kwargs = {"proxy": proxy_url}
+        
+        # Disable SSL verification for SOCKS proxies to avoid connection issues
+        if proxy_url.startswith('socks'):
+            client_kwargs["verify"] = False
+        
+        return httpx.Client(**client_kwargs)
+
+    def _create_async_http_client(self) -> Optional[httpx.AsyncClient]:
+        """
+        Create httpx.AsyncClient with proxy support if configured.
+        
+        Supports HTTP, HTTPS, and SOCKS5 proxies.
+        For SOCKS5 proxies, SSL verification is disabled to avoid connection issues.
+        
+        Returns:
+            httpx.AsyncClient instance with proxy or None if no proxy configured
+        """
+        proxy_url = self._get_proxy_config()
+        if not proxy_url:
+            return None
+        
+        # Configure client based on proxy type
+        client_kwargs = {"proxy": proxy_url}
+        
+        # Disable SSL verification for SOCKS proxies to avoid connection issues
+        if proxy_url.startswith('socks'):
+            client_kwargs["verify"] = False
+        
+        return httpx.AsyncClient(**client_kwargs)
+
+    def _build_completion_args(self, http_client, **kwargs):
+        """
+        Build common completion arguments for both sync and async requests.
+        
+        Args:
+            http_client: httpx.Client or httpx.AsyncClient instance (or None)
+            **kwargs: Additional parameters from completion call
+            
+        Returns:
+            Dictionary with completion arguments
         """
         import os
 
@@ -448,28 +516,12 @@ class PuterLLM(CustomLLM):
                 "Get your API key from https://puter.com/"
             )
 
-        # Enable experimental HTTP handler support
-        os.environ['EXPERIMENTAL_OPENAI_BASE_LLM_HTTP_HANDLER'] = "True"
-
-        # Configure proxy if enabled (optional - for bypassing IP blocks)
-        use_proxy = os.getenv("USE_PROXY", "false").lower() == "true"
-        http_client = None
-
-        if use_proxy:
-            proxy_url = os.getenv("SOCKS5_PROXY") or os.getenv("HTTPS_PROXY") or os.getenv("HTTP_PROXY")
-            if proxy_url:
-                # httpx will use ALL_PROXY for all protocols including HTTPS
-                os.environ['ALL_PROXY'] = proxy_url
-
-                # Create custom httpx client with proxy and disabled SSL verification for SOCKS
-                if proxy_url.startswith('socks'):
-                    http_client = httpx.Client(proxy=proxy_url, verify=False)
-
         # Filter kwargs to only include valid model parameters
         filtered_kwargs = filter_model_params(kwargs)
         if 'optional_params' in kwargs:
             filtered_kwargs.update(**kwargs['optional_params'])
             filtered_kwargs['optional_params'] = kwargs['optional_params']
+        
         # Build completion arguments with only necessary parameters
         client_args = {'api_key': api_key}
         if http_client:
@@ -494,18 +546,46 @@ class PuterLLM(CustomLLM):
 
     def completion(self, *args, **kwargs) -> ModelResponse:
         """
-        Handle synchronous completion requests.
+        Handle synchronous completion requests with optional proxy support.
+        
+        Proxy configuration via environment variables:
+        - SOCKS5_PROXY: socks5://host:port
+        - HTTPS_PROXY: https://host:port
+        - HTTP_PROXY: http://host:port
+        - ALL_PROXY: any of the above
         """
+        import os
+        
+        # Enable experimental HTTP handler support
+        os.environ['EXPERIMENTAL_OPENAI_BASE_LLM_HTTP_HANDLER'] = "True"
+        
+        # Create HTTP client with proxy support
+        http_client = self._create_http_client()
+        
         kwargs['client'] = PuterHTTPHandler
-        new_kwargs = self.puter_completion_args(*args, **kwargs)
+        new_kwargs = self._build_completion_args(http_client, **kwargs)
         return litellm.completion(**new_kwargs)
 
     async def acompletion(self, *args, **kwargs) -> ModelResponse:
         """
-        Handle asynchronous completion requests.
+        Handle asynchronous completion requests with optional proxy support.
+        
+        Proxy configuration via environment variables:
+        - SOCKS5_PROXY: socks5://host:port
+        - HTTPS_PROXY: https://host:port
+        - HTTP_PROXY: http://host:port
+        - ALL_PROXY: any of the above
         """
+        import os
+        
+        # Enable experimental HTTP handler support
+        os.environ['EXPERIMENTAL_OPENAI_BASE_LLM_HTTP_HANDLER'] = "True"
+        
+        # Create async HTTP client with proxy support
+        http_client = self._create_async_http_client()
+        
         kwargs['client'] = PuterAsyncHTTPHandler
-        new_kwargs = self.puter_completion_args(*args, **kwargs)
+        new_kwargs = self._build_completion_args(http_client, **kwargs)
         return await litellm.acompletion(**new_kwargs)
 
 
