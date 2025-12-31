@@ -18,19 +18,36 @@ Custom provider para LiteLLM que permite acceder a 488+ modelos de IA a través 
 
 ## 📋 Requisitos
 
-### Sistema Base
 - Python 3.10+
-- PostgreSQL 15+ (con extensión pgvector)
-- Google Chrome
-- Xvfb (para entorno headless)
+- LiteLLM 1.80.10+
+- API Key de Puter (obtener en [puter.com](https://puter.com))
 
-### Para Docker
+### Opcional (para Docker)
 - Docker 20.10+
 - Docker Compose 2.0+
 
 ## 🚀 Instalación
 
-### Opción 1: Docker (Recomendado)
+### Opción 1: Instalación Local (Recomendado)
+
+```bash
+# Clonar repositorio
+git clone https://github.com/aorizondo/litellm-puter.git
+cd litellm-puter
+
+# Instalar con pip
+pip install -e .
+
+# Configurar API key
+export PUTER_API_KEY=your_api_key
+
+# Iniciar servidor (ejecutar desde el directorio litellm-puter/)
+litellm --config config.yaml
+```
+
+**Nota**: El comando `litellm --config config.yaml` debe ejecutarse desde el directorio que contiene tanto el módulo `litellm_puter/` como el archivo `config.yaml`.
+
+### Opción 2: Docker
 
 ```bash
 # Clonar repositorio
@@ -51,50 +68,6 @@ docker-compose logs -f litellm
 
 El servidor estará disponible en `http://localhost:4000`
 
-### Opción 2: Instalación Local
-
-```bash
-# Instalar dependencias del sistema (Debian/Ubuntu)
-sudo apt-get update
-sudo apt-get install -y \
-    python3.10 python3-pip \
-    postgresql-15 postgresql-contrib \
-    google-chrome-stable \
-    xvfb xvfbwrapper
-
-# Clonar repositorio
-git clone https://github.com/aorizondo/litellm-puter.git
-cd litellm-puter
-
-# Instalar con Poetry
-pip install poetry
-poetry install
-
-# O con pip
-pip install -r requirements.txt
-pip install -e .
-```
-
-### Opción 3: Paquete Debian
-
-```bash
-# Construir paquete
-./debian/build-deb.sh
-
-# Instalar
-sudo dpkg -i litellm-puter_*.deb
-sudo apt-get install -f  # Resolver dependencias
-
-# Configurar
-sudo nano /etc/litellm-puter/config.yaml
-# Agregar PUTER_API_KEY en /etc/default/litellm-puter
-
-# Iniciar servicio
-sudo systemctl start litellm-puter
-sudo systemctl enable litellm-puter
-sudo systemctl status litellm-puter
-```
-
 ## ⚙️ Configuración
 
 ### Variables de Entorno
@@ -103,19 +76,8 @@ sudo systemctl status litellm-puter
 # API Key de Puter (REQUERIDO)
 PUTER_API_KEY=your_puter_api_key_here
 
-# PostgreSQL
-POSTGRES_USER=litellm
-POSTGRES_PASSWORD=your_secure_password
-POSTGRES_DB=litellm_db
-DATABASE_URL=postgresql://litellm:password@localhost:5432/litellm_db
-
-# LiteLLM
-LITELLM_PORT=4000
-LITELLM_MASTER_KEY=sk-1234
-
-# Scraper (opcional)
-USE_XVFB=1
-DISPLAY=:99
+# LiteLLM (opcional)
+LITELLM_MASTER_KEY=sk-1234  # Para autenticación del proxy
 ```
 
 ### Obtener API Key de Puter
@@ -127,6 +89,27 @@ DISPLAY=:99
 5. Copia la key y agrégala a tu `.env`
 
 ## 💻 Uso
+
+### ⚠️ Requisito Importante
+
+**El módulo `litellm_puter` y el archivo `config.yaml` DEBEN estar en el mismo directorio** para el correcto funcionamiento del sistema.
+
+### Como Servidor Proxy
+
+```bash
+# Configurar API key
+export PUTER_API_KEY=your_api_key
+
+# Iniciar servidor (OBLIGATORIO ejecutar desde el directorio que contiene litellm_puter/)
+cd /path/to/litellm-puter
+litellm --config config.yaml
+
+# O especificar puerto
+litellm --config config.yaml --port 4000
+
+# O con Docker
+docker-compose up -d
+```
 
 ### Como Biblioteca Python
 
@@ -156,16 +139,6 @@ response = litellm.completion(
     model="puter/deepseek/deepseek-chat",
     messages=[{"role": "user", "content": "Write a Python function"}]
 )
-```
-
-### Como Servidor Proxy
-
-```bash
-# Iniciar servidor
-litellm --config config.yaml --port 4000
-
-# O con Docker
-docker-compose up -d
 ```
 
 Usar el proxy con OpenAI SDK:
@@ -198,11 +171,14 @@ Ejemplos:
 - `puter/xai/grok-2-1212`
 - `puter/google/gemini-2.0-flash-exp`
 
-### Scraper de Tokens Temporales
+### Scraper de Tokens Temporales (Opcional)
 
-Para pruebas sin API key:
+Para pruebas sin API key, instala las dependencias adicionales:
 
 ```bash
+# Instalar con soporte para scraper
+pip install -e ".[scraper]"
+
 # Ejecutar scraper
 python -m litellm_puter.scraper
 
@@ -210,28 +186,19 @@ python -m litellm_puter.scraper
 # Usar el primer token válido como PUTER_API_KEY
 ```
 
-**Nota**: El scraper requiere Xvfb y Chrome. Usa proxies automáticamente si es necesario.
+**Nota**: El scraper requiere Chrome instalado.
 
 ## 🏗️ Arquitectura
 
 ```
 litellm-puter/
-├── litellm_puter/          # Módulo principal
+├── litellm_puter/          # Módulo principal (DEBE estar junto a config.yaml)
 │   ├── __init__.py         # Inicialización del paquete
 │   ├── provider.py         # Custom provider para LiteLLM
 │   ├── models_cache.py     # Cache de modelos disponibles
 │   └── scraper.py          # Scraper de tokens temporales
-├── config.yaml             # Configuración de LiteLLM
-├── docker-compose.yml      # Orquestación de servicios
-├── Dockerfile              # Imagen de contenedor
-├── entrypoint.sh           # Script de inicio
-├── debian/                 # Tooling para paquete .deb
-│   ├── control             # Metadatos del paquete
-│   ├── postinst            # Script post-instalación
-│   ├── prerm               # Script pre-desinstalación
-│   ├── litellm-puter.service  # Servicio systemd
-│   └── build-deb.sh        # Script de construcción
-└── pyproject.toml          # Configuración de Poetry
+├── config.yaml             # Configuración de LiteLLM (OBLIGATORIO)
+└── pyproject.toml          # Configuración del paquete
 ```
 
 ### Componentes
@@ -239,21 +206,25 @@ litellm-puter/
 1. **PuterHTTPHandler**: Intercepta peticiones HTTP y las transforma al formato de Puter
 2. **PuterLLM**: Custom provider que se registra en LiteLLM
 3. **models_cache**: Cache de modelos disponibles en Puter
-4. **scraper**: Automatización con Playwright para obtener tokens
+4. **scraper**: Automatización para obtener tokens temporales
+
+### Estructura de Directorios Requerida
+
+```
+tu-proyecto/
+├── litellm_puter/     # Módulo Python
+└── config.yaml        # Archivo de configuración
+```
+
+**Importante**: Ejecuta `litellm --config config.yaml` desde el directorio que contiene ambos elementos.
 
 ## 🐳 Docker
-
-### Servicios
-
-- **litellm**: Servidor proxy principal (puerto 4000)
-- **db**: PostgreSQL 15 con pgvector
 
 ### Comandos Útiles
 
 ```bash
 # Ver logs
 docker-compose logs -f litellm
-docker-compose logs -f db
 
 # Reiniciar servicios
 docker-compose restart litellm
@@ -265,75 +236,19 @@ docker-compose build --no-cache litellm
 docker-compose down -v
 ```
 
-### Recursos
-
-El docker-compose está optimizado para VPS con recursos limitados:
-- LiteLLM: 384MB RAM, 0.5 CPU
-- PostgreSQL: 192MB RAM, 0.3 CPU
-
-Ajusta según tus necesidades en `docker-compose.yml`.
-
-## 📦 Paquete Debian
-
-### Construcción
-
-```bash
-# Instalar dependencias de construcción
-sudo apt-get install -y debhelper dh-python python3-all python3-setuptools
-
-# Construir paquete
-cd litellm-puter
-./debian/build-deb.sh
-
-# El paquete se genera en ../
-ls -lh ../litellm-puter_*.deb
-```
-
-### Instalación
-
-```bash
-sudo dpkg -i litellm-puter_*.deb
-sudo apt-get install -f
-```
-
-### Configuración Post-Instalación
-
-```bash
-# Editar configuración
-sudo nano /etc/litellm-puter/config.yaml
-
-# Agregar API key
-sudo nano /etc/default/litellm-puter
-# PUTER_API_KEY=your_key_here
-
-# Iniciar servicio
-sudo systemctl start litellm-puter
-sudo systemctl enable litellm-puter
-```
-
-### Archivos Instalados
-
-- `/usr/lib/python3/dist-packages/litellm_puter/` - Módulo Python
-- `/etc/litellm-puter/config.yaml` - Configuración
-- `/etc/default/litellm-puter` - Variables de entorno
-- `/lib/systemd/system/litellm-puter.service` - Servicio systemd
-- `/var/log/litellm-puter/` - Logs
-
 ## 🔧 Desarrollo
 
 ```bash
-# Instalar dependencias de desarrollo
-poetry install --with dev
+# Instalar con dependencias de desarrollo
+pip install -e ".[scraper]"
+pip install pytest pytest-asyncio black ruff mypy
 
 # Ejecutar tests
-poetry run pytest
+pytest
 
 # Formatear código
-poetry run black litellm_puter/
-poetry run ruff check litellm_puter/
-
-# Type checking
-poetry run mypy litellm_puter/
+black litellm_puter/
+ruff check litellm_puter/
 ```
 
 ## 🐛 Troubleshooting
@@ -359,33 +274,20 @@ Tu API key es inválida o ha expirado. Genera una nueva en [puter.com](https://p
 
 Has alcanzado el límite de uso gratuito. Opciones:
 1. Espera a que se renueve tu cuota
-2. Usa el scraper para obtener tokens temporales
+2. Usa el scraper para obtener tokens temporales (requiere `pip install -e ".[scraper]"`)
 3. Actualiza tu plan en Puter
 
 ### Scraper no funciona
 
 ```bash
+# Instalar dependencias del scraper
+pip install -e ".[scraper]"
+
 # Verificar Chrome
 google-chrome --version
 
-# Verificar Xvfb
-which Xvfb
-
-# Ejecutar con display virtual
-export DISPLAY=:99
-Xvfb :99 -screen 0 1280x1024x24 &
+# Ejecutar scraper
 python -m litellm_puter.scraper
-```
-
-### PostgreSQL no conecta
-
-```bash
-# Verificar servicio
-docker-compose ps db
-docker-compose logs db
-
-# Verificar conexión
-docker-compose exec db psql -U litellm -d litellm_db -c "SELECT 1;"
 ```
 
 ## 📄 Licencia
