@@ -329,8 +329,8 @@ class PuterAsyncHTTPHandler(AsyncHTTPHandler, PuterHTTPHandlerBase):
                     )
                     usage = usage.json()
                     remaining = usage['allowanceInfo']['remaining']
-                    print(usage['allowanceInfo']['remaining'])
-                    if token < self.token_index or result == self.api_key or not result:
+                    print(f"index {self.token_index} token {token+1} usage {usage['allowanceInfo']['remaining']}")
+                    if token < self.token_index or result == self.api_key or not result or not remaining:
                         continue
                     self.token_index = token
                     self.api_key = os.environ["PUTER_API_KEY"] = os.environ["PUTER_TOKEN"] = result
