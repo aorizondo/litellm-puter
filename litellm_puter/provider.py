@@ -22,7 +22,8 @@ from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLogging
 from httpx._types import RequestFiles
 
 from .models_cache import get_model_driver
-
+from dotenv import load_dotenv
+load_dotenv()
 
 # Valid model parameters that should be passed to the LLM provider
 VALID_MODEL_PARAMS = {
@@ -139,7 +140,7 @@ class PuterHTTPHandlerBase:
     eliminating code duplication and ensuring consistent behavior.
     """
 
-    def __init__(self, api_key: str):
+    def __init__(self):
         """
         Initialize the base handler.
         
@@ -149,9 +150,7 @@ class PuterHTTPHandlerBase:
         Raises:
             ValueError: If API key is invalid or missing
         """
-        if not api_key or api_key == "None":
-            raise ValueError("Valid Puter API key is required")
-        self.api_key = api_key
+        self.api_key = os.environ["PUTER_API_KEY"]
         self.token_index = 0
 
     def _build_puter_request(
@@ -185,7 +184,7 @@ class PuterHTTPHandlerBase:
             "args": filtered_args,
             "stream": stream,
             "test_mode": False,
-            # "auth_token": self.api_key,
+            "auth_token": self.api_key,
         }
         puter_headers = self._get_headers()
         headers.update(puter_headers)
@@ -216,10 +215,8 @@ class PuterHTTPHandlerBase:
             "Referer": "https://puter.com/",
         }
 
-    def _handle_puter_response(
-            self,
-            puter_response: httpx.Response
-    ) -> Any:
+    @staticmethod
+    def _handle_puter_response(puter_response: httpx.Response) -> httpx.Response:
         if loads(puter_response.request.content).get('stream'):
             return puter_response
         response_json = puter_response.json()
@@ -264,7 +261,7 @@ class PuterAsyncHTTPHandler(AsyncHTTPHandler, PuterHTTPHandlerBase):
     Supports proxy configuration via custom_httpx_client.
     """
 
-    def __init__(self, api_key: str, *args, custom_httpx_client=None, **kwargs):
+    def __init__(self, *args, **kwargs):
         """
         Initialize the async HTTP handler.
         
@@ -273,12 +270,8 @@ class PuterAsyncHTTPHandler(AsyncHTTPHandler, PuterHTTPHandlerBase):
             custom_httpx_client: Optional custom httpx.AsyncClient (for proxy support, etc.)
             *args, **kwargs: Additional arguments passed to parent class
         """
-        PuterHTTPHandlerBase.__init__(self, api_key)
+        PuterHTTPHandlerBase.__init__(self)
         AsyncHTTPHandler.__init__(self, *args, **kwargs)
-
-        # Override the client if a custom one was provided
-        if custom_httpx_client:
-            self.client = custom_httpx_client
 
     async def post(
             self,
@@ -323,7 +316,6 @@ class PuterAsyncHTTPHandler(AsyncHTTPHandler, PuterHTTPHandlerBase):
                     usage = await super().get("https://api.puter.com/metering/usage",
                         headers={
                             "accept": "*/*",
-                            "accept-language": "es-ES,es;q=0.9,ru;q=0.8,en;q=0.7",
                             "authorization": "Bearer " + result,
                             "referrer": "https://puter.com/",
                         },
@@ -334,7 +326,7 @@ class PuterAsyncHTTPHandler(AsyncHTTPHandler, PuterHTTPHandlerBase):
                     if token < self.token_index or result == self.api_key or not result or not remaining:
                         continue
                     self.token_index = token
-                    self.api_key = os.environ["PUTER_API_KEY"] = os.environ["PUTER_TOKEN"] = result
+                    self.api_key = os.environ["PUTER_API_KEY"] = result
                     return await self.post(
                         url=url,
                         data=data,
@@ -367,7 +359,7 @@ class PuterHTTPHandler(HTTPHandler, PuterHTTPHandlerBase):
     Supports proxy configuration via custom_httpx_client.
     """
 
-    def __init__(self, api_key: str, *args, custom_httpx_client=None, **kwargs):
+    def __init__(self, custom_httpx_client=None, *args, **kwargs):
         """
         Initialize the sync HTTP handler.
         
@@ -376,7 +368,7 @@ class PuterHTTPHandler(HTTPHandler, PuterHTTPHandlerBase):
             custom_httpx_client: Optional custom httpx.Client (for proxy support, etc.)
             *args, **kwargs: Additional arguments passed to parent class
         """
-        PuterHTTPHandlerBase.__init__(self, api_key)
+        PuterHTTPHandlerBase.__init__(self)
         HTTPHandler.__init__(self, *args, **kwargs)
 
         # Override the client if a custom one was provided
@@ -419,6 +411,43 @@ class PuterHTTPHandler(HTTPHandler, PuterHTTPHandlerBase):
             **puter_request,
         )
         parsed_response = self._handle_puter_response(puter_response)
+        try:
+            if "You have reached your AI usage limit for this account" in str(puter_response.json()):
+                with open('token.txt', 'r') as f:
+                    tokens = f.readlines()
+                for token in range(len(tokens)):
+                    result = tokens[token].strip()
+                    usage = super().get("https://api.puter.com/metering/usage",
+                        headers={
+                            "accept": "*/*",
+                            "accept-language": "es-ES,es;q=0.9,ru;q=0.8,en;q=0.7",
+                            "authorization": "Bearer " + result,
+                            "referrer": "https://puter.com/",
+                        },
+                    )
+                    usage = usage.json()
+                    remaining = usage['allowanceInfo']['remaining']
+                    print(f"index {self.token_index} token {token+1} usage {usage['allowanceInfo']['remaining']}")
+                    if token < self.token_index or result == self.api_key or not result or not remaining:
+                        continue
+                    self.token_index = token
+                    self.api_key = os.environ["PUTER_API_KEY"] = os.environ["PUTER_TOKEN"] = result
+                    return self.post(
+                        url=url,
+                        data=data,
+                        json=json,
+                        params=params,
+                        headers=headers,
+                        timeout=timeout,
+                        stream=stream,
+                        logging_obj=logging_obj,
+                        files=files,
+                        content=content,
+                    )
+                else:
+                    self.token_index = 0
+        except Exception as e:
+            print(e)
 
         return parsed_response
 
@@ -429,84 +458,21 @@ class PuterLLM(CustomLLM):
     
     This class integrates with LiteLLM's custom provider system, allowing
     Puter to be used as a first-class provider alongside OpenAI, Anthropic, etc.
-    Supports HTTP/HTTPS/SOCKS5 proxies via environment variables.
     """
-
-    def _get_proxy_config(self) -> Optional[str]:
-        """
-        Get proxy configuration from environment variables.
-        
-        Checks in order: SOCKS5_PROXY, HTTPS_PROXY, HTTP_PROXY, ALL_PROXY
-        
-        Returns:
-            Proxy URL string or None if no proxy configured
-        """
-        import os
-        return (
-            os.getenv("SOCKS5_PROXY") or 
-            os.getenv("HTTPS_PROXY") or 
-            os.getenv("HTTP_PROXY") or 
-            os.getenv("ALL_PROXY")
-        )
-
-    def _create_http_client(self) -> Optional[httpx.Client]:
-        """
-        Create httpx.Client with proxy support if configured.
-        
-        Supports HTTP, HTTPS, and SOCKS5 proxies.
-        For SOCKS5 proxies, SSL verification is disabled to avoid connection issues.
-        
-        Returns:
-            httpx.Client instance with proxy or None if no proxy configured
-        """
-        proxy_url = self._get_proxy_config()
-        if not proxy_url:
-            return None
-        
-        # Configure client based on proxy type
-        client_kwargs = {"proxy": proxy_url}
-        
-        # Disable SSL verification for SOCKS proxies to avoid connection issues
-        if proxy_url.startswith('socks'):
-            client_kwargs["verify"] = False
-        
-        return httpx.Client(**client_kwargs)
-
-    def _create_async_http_client(self) -> Optional[httpx.AsyncClient]:
-        """
-        Create httpx.AsyncClient with proxy support if configured.
-        
-        Supports HTTP, HTTPS, and SOCKS5 proxies.
-        For SOCKS5 proxies, SSL verification is disabled to avoid connection issues.
-        
-        Returns:
-            httpx.AsyncClient instance with proxy or None if no proxy configured
-        """
-        proxy_url = self._get_proxy_config()
-        if not proxy_url:
-            return None
-        
-        # Configure client based on proxy type
-        client_kwargs = {"proxy": proxy_url}
-        
-        # Disable SSL verification for SOCKS proxies to avoid connection issues
-        if proxy_url.startswith('socks'):
-            client_kwargs["verify"] = False
-        
-        return httpx.AsyncClient(**client_kwargs)
-
-    def _build_completion_args(self, http_client, **kwargs):
+    @staticmethod
+    def _build_completion_args(**kwargs):
         """
         Build common completion arguments for both sync and async requests.
         
         Args:
-            http_client: httpx.Client or httpx.AsyncClient instance (or None)
-            **kwargs: Additional parameters from completion call
+            **kwargs: Parameters from completion call
             
         Returns:
             Dictionary with completion arguments
         """
         import os
+        # Enable experimental HTTP handler support
+        os.environ['EXPERIMENTAL_OPENAI_BASE_LLM_HTTP_HANDLER'] = "True"
 
         # Get API key from environment
         api_key = os.getenv("PUTER_API_KEY")
@@ -523,20 +489,10 @@ class PuterLLM(CustomLLM):
             filtered_kwargs['optional_params'] = kwargs['optional_params']
         
         # Build completion arguments with only necessary parameters
-        client_args = {'api_key': api_key}
-        if http_client:
-            client_args['custom_httpx_client'] = http_client
-
         completion_args = {
-            'client': kwargs['client'](**client_args),
+            'client': kwargs['client'],
             'api_key': api_key,
             'base_url': 'https://api.puter.com/drivers/call',
-            'extra_headers': {
-                "Content-Type": "application/json",
-                "Origin": "https://puter.com",
-                "Referer": "https://puter.com/",
-                "Authorization": "Bearer " + api_key
-            },
         }
 
         # Add all filtered model parameters
@@ -546,46 +502,18 @@ class PuterLLM(CustomLLM):
 
     def completion(self, *args, **kwargs) -> ModelResponse:
         """
-        Handle synchronous completion requests with optional proxy support.
-        
-        Proxy configuration via environment variables:
-        - SOCKS5_PROXY: socks5://host:port
-        - HTTPS_PROXY: https://host:port
-        - HTTP_PROXY: http://host:port
-        - ALL_PROXY: any of the above
+        Handle synchronous completion requests.
         """
-        import os
-        
-        # Enable experimental HTTP handler support
-        os.environ['EXPERIMENTAL_OPENAI_BASE_LLM_HTTP_HANDLER'] = "True"
-        
-        # Create HTTP client with proxy support
-        http_client = self._create_http_client()
-        
-        kwargs['client'] = PuterHTTPHandler
-        new_kwargs = self._build_completion_args(http_client, **kwargs)
+        kwargs['client'] = PuterHTTPHandler()
+        new_kwargs = self._build_completion_args(**kwargs)
         return litellm.completion(**new_kwargs)
 
     async def acompletion(self, *args, **kwargs) -> ModelResponse:
         """
-        Handle asynchronous completion requests with optional proxy support.
-        
-        Proxy configuration via environment variables:
-        - SOCKS5_PROXY: socks5://host:port
-        - HTTPS_PROXY: https://host:port
-        - HTTP_PROXY: http://host:port
-        - ALL_PROXY: any of the above
+        Handle asynchronous completion requests.
         """
-        import os
-        
-        # Enable experimental HTTP handler support
-        os.environ['EXPERIMENTAL_OPENAI_BASE_LLM_HTTP_HANDLER'] = "True"
-        
-        # Create async HTTP client with proxy support
-        http_client = self._create_async_http_client()
-        
-        kwargs['client'] = PuterAsyncHTTPHandler
-        new_kwargs = self._build_completion_args(http_client, **kwargs)
+        kwargs['client'] = PuterAsyncHTTPHandler()
+        new_kwargs = self._build_completion_args(**kwargs)
         return await litellm.acompletion(**new_kwargs)
 
 
